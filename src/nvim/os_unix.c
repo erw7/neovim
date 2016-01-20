@@ -49,36 +49,6 @@
 # include "os_unix.c.generated.h"
 #endif
 
-#if defined(HAVE_ACL)
-# ifdef HAVE_SYS_ACL_H
-#  include <sys/acl.h>
-# endif
-# ifdef HAVE_SYS_ACCESS_H
-#  include <sys/access.h>
-# endif
-
-
-// Return a pointer to the ACL of file "fname" in allocated memory.
-// Return NULL if the ACL is not available for whatever reason.
-vim_acl_T mch_get_acl(const char_u *fname)
-{
-  vim_acl_T ret = NULL;
-  return ret;
-}
-
-// Set the ACL of file "fname" to "acl" (unless it's NULL).
-void mch_set_acl(const char_u *fname, vim_acl_T aclent)
-{
-  if (aclent == NULL)
-    return;
-}
-
-void mch_free_acl(vim_acl_T aclent)
-{
-  if (aclent == NULL)
-    return;
-}
-#endif
 
 void mch_exit(int r)
   FUNC_ATTR_NORETURN

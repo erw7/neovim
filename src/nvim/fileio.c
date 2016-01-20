@@ -58,6 +58,7 @@
 #include "nvim/os/os_defs.h"
 #include "nvim/os/time.h"
 #include "nvim/os/input.h"
+#include "nvim/os/acl.h"
 
 #define BUFSIZE         8192    /* size of normal write buffer */
 #define SMBUFSIZE       256     /* size of emergency write buffer */
@@ -2265,10 +2266,8 @@ buf_write(
 #ifdef HAS_BW_FLAGS
   int wb_flags = 0;
 #endif
-#ifdef HAVE_ACL
   vim_acl_T acl = NULL;                 /* ACL copied from original file to
                                            backup or new file */
-#endif
   int write_undo_file = FALSE;
   context_sha256_T sha_ctx;
   unsigned int bkc = get_bkc_value(buf);
@@ -2614,13 +2613,11 @@ buf_write(
     }
   }
 
-#ifdef HAVE_ACL
   /*
    * For systems that support ACL: get the ACL from the original file.
    */
   if (!newfile)
-    acl = mch_get_acl(fname);
-#endif
+    acl = os_get_acl(fname);
 
   /*
    * If 'backupskip' is not empty, don't make a backup for some files.
@@ -2862,9 +2859,7 @@ buf_write(
                           file_info_old.stat.st_atim.tv_sec,
                           file_info_old.stat.st_mtim.tv_sec);
 #endif
-#ifdef HAVE_ACL
-          mch_set_acl(backup, acl);
-#endif
+          os_set_acl(backup, acl);
           break;
         }
       }
@@ -3387,13 +3382,11 @@ restore_backup:
     if (perm >= 0) {  // Set perm. of new file same as old file.
       (void)os_setperm((const char *)wfname, perm);
     }
-#ifdef HAVE_ACL
     // Probably need to set the ACL before changing the user (can't set the
     // ACL on a file the user doesn't own).
     if (!backup_copy) {
-      mch_set_acl(wfname, acl);
+      os_set_acl(wfname, acl);
     }
-#endif
 
     if (wfname != fname) {
       // The file was written to a temp file, now it needs to be converted
@@ -3616,9 +3609,8 @@ nofail:
     write_info.bw_iconv_fd = (iconv_t)-1;
   }
 # endif
-#ifdef HAVE_ACL
-  mch_free_acl(acl);
-#endif
+
+  os_free_acl(acl);
 
   if (errmsg != NULL) {
     // - 100 to save some space for further error message
@@ -4578,9 +4570,7 @@ int vim_rename(const char_u *from, const char_u *to)
   char        *errmsg = NULL;
   char        *buffer;
   long perm;
-#ifdef HAVE_ACL
   vim_acl_T acl;                /* ACL from original file */
-#endif
   bool use_tmp_file = false;
 
   /*
@@ -4661,15 +4651,11 @@ int vim_rename(const char_u *from, const char_u *to)
    * Rename() failed, try copying the file.
    */
   perm = os_getperm((const char *)from);
-#ifdef HAVE_ACL
   // For systems that support ACL: get the ACL from the original file.
-  acl = mch_get_acl(from);
-#endif
+  acl = os_get_acl(from);
   fd_in = os_open((char *)from, O_RDONLY, 0);
   if (fd_in < 0) {
-#ifdef HAVE_ACL
-    mch_free_acl(acl);
-#endif
+    os_free_acl(acl);
     return -1;
   }
 
@@ -4678,9 +4664,7 @@ int vim_rename(const char_u *from, const char_u *to)
       O_CREAT|O_EXCL|O_WRONLY|O_NOFOLLOW, (int)perm);
   if (fd_out < 0) {
     close(fd_in);
-#ifdef HAVE_ACL
-    mch_free_acl(acl);
-#endif
+    os_free_acl(acl);
     return -1;
   }
 
@@ -4690,9 +4674,7 @@ int vim_rename(const char_u *from, const char_u *to)
   if (buffer == NULL) {
     close(fd_out);
     close(fd_in);
-#ifdef HAVE_ACL
-    mch_free_acl(acl);
-#endif
+    os_free_acl(acl);
     return -1;
   }
 
@@ -4713,10 +4695,8 @@ int vim_rename(const char_u *from, const char_u *to)
 #ifndef UNIX  // For Unix os_open() already set the permission.
   os_setperm((const char *)to, perm);
 #endif
-#ifdef HAVE_ACL
-  mch_set_acl(to, acl);
-  mch_free_acl(acl);
-#endif
+  os_set_acl(to, acl);
+  os_free_acl(acl);
   if (errmsg != NULL) {
     EMSG2(errmsg, to);
     return -1;
