@@ -110,6 +110,7 @@
 #include "nvim/eval/executor.h"
 #include "nvim/eval/gc.h"
 #include "nvim/macros.h"
+#include "nvim/os/acl.h"
 
 // TODO(ZyX-I): Remove DICT_MAXNEST, make users be non-recursive instead
 
@@ -11523,7 +11524,7 @@ static void f_has(typval_T *argvars, typval_T *rettv, FunPtr fptr)
     "win64",
 #endif
     "fname_case",
-#ifdef HAVE_ACL
+#if defined(HAVE_ACL)
     "acl",
 #endif
     "autochdir",
