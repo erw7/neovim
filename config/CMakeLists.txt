@@ -32,6 +32,7 @@ endif()
 check_include_files(sys/utsname.h HAVE_SYS_UTSNAME_H)
 check_include_files(termios.h HAVE_TERMIOS_H)
 check_include_files(sys/uio.h HAVE_SYS_UIO_H)
+check_include_files("sys/types.h;sys/acl.h" HAVE_SYS_ACL_H)
 
 # Functions
 check_function_exists(fseeko HAVE_FSEEKO)
