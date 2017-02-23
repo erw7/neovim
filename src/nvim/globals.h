@@ -882,8 +882,13 @@ EXTERN int swap_exists_did_quit INIT(= FALSE);
 EXTERN char_u IObuff[IOSIZE];               ///< Buffer for sprintf, I/O, etc.
 EXTERN char_u NameBuff[MAXPATHL];           ///< Buffer for expanding file names
 EXTERN char_u msg_buf[MSG_BUF_LEN];         ///< Small buffer for messages
-EXTERN char os_buf[MAX(MAXPATHL, IOSIZE)];  ///< Buffer for the os/ layer
-
+EXTERN char os_buf[                         ///< Buffer for the os/ layer
+#if MAXPATHL > IOSIZE
+MAXPATHL
+#else
+IOSIZE
+#endif
+];
 
 /* When non-zero, postpone redrawing. */
 EXTERN int RedrawingDisabled INIT(= 0);
@@ -1230,6 +1235,9 @@ EXTERN int ignored;
 EXTERN char *ignoredp;
 
 EXTERN bool in_free_unref_items INIT(= false);
+
+// Used for checking if local variables or arguments used in a lambda.
+EXTERN int *eval_lavars_used INIT(= NULL);
 
 // If a msgpack-rpc channel should be started over stdin/stdout
 EXTERN bool embedded_mode INIT(= false);
