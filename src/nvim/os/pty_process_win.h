@@ -6,16 +6,18 @@
 #include <winpty.h>
 
 #include "nvim/event/libuv_process.h"
+#include "nvim/vim.h"
+#include "nvim/types.h"
+#include "nvim/os/os.h"
 
 typedef struct pty_process {
   Process process;
   char *term_name;
   uint16_t width, height;
   winpty_t *wp;
-  uv_async_t finish_async;
   HANDLE finish_wait;
   HANDLE process_handle;
-  bool is_closing;
+  uv_timer_t wait_eof_timer;
 } PtyProcess;
 
 static inline PtyProcess pty_process_init(Loop *loop, void *data)
@@ -26,10 +28,8 @@ static inline PtyProcess pty_process_init(Loop *loop, void *data)
   rv.width = 80;
   rv.height = 24;
   rv.wp = NULL;
-  // XXX: Zero rv.finish_async somehow?
   rv.finish_wait = NULL;
   rv.process_handle = NULL;
-  rv.is_closing = false;
   return rv;
 }
 
