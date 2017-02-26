@@ -12,7 +12,8 @@
 static void wait_eof_timer_cb(uv_timer_t* wait_eof_timer)
   FUNC_ATTR_NONNULL_ALL
 {
-  PtyProcess *ptyproc = (PtyProcess *)((uv_handle_t *)wait_eof_timer->data);
+  PtyProcess *ptyproc =
+    (PtyProcess *)((uv_handle_t *)wait_eof_timer->data);
   Process *proc = (Process *)ptyproc;
 
   if (!uv_is_readable(proc->out->uvstream)) {
@@ -52,16 +53,19 @@ int pty_process_spawn(PtyProcess *ptyproc)
       WINPTY_FLAG_ALLOW_CURPROC_DESKTOP_CREATION, &err))) {
     goto cleanup;
   }
-  winpty_config_set_initial_size(cfg, ptyproc->width, ptyproc->height, &err);
+  winpty_config_set_initial_size(
+      cfg,
+      ptyproc->width,
+      ptyproc->height, &err);
 
   if (!(wp = winpty_open(cfg, &err))) {
     goto cleanup;
   }
 
-  if ((status = utf16_to_utf8(winpty_conin_name(wp), &in_name)) != 0) {
+  if ((status = utf16_to_utf8(winpty_conin_name(wp), &in_name))) {
     goto cleanup;
   }
-  if ((status = utf16_to_utf8(winpty_conout_name(wp), &out_name)) != 0) {
+  if ((status = utf16_to_utf8(winpty_conout_name(wp), &out_name))) {
     goto cleanup;
   }
   in_req = xmalloc(sizeof(uv_connect_t));
@@ -77,31 +81,27 @@ int pty_process_spawn(PtyProcess *ptyproc)
       out_name,
       pty_process_connect_cb);
 
-  // XXX: Provide the correct ptyprocess parameters (at least, the cmdline...
-  // probably cwd too?  what about environ?)
-  if (proc->cwd != NULL
-      && ((status = utf8_to_utf16(proc->cwd, &cwd)) != 0)) {
+  if (proc->cwd != NULL && (status = utf8_to_utf16(proc->cwd, &cwd))) {
     goto cleanup;
   }
-  if ((status = create_appname_cmdline(proc->argv, &appname, &cmdline))
-      != 0) {
+  if ((status = create_appname_and_cmdline(
+          proc->argv,
+          &appname, &cmdline))) {
     goto cleanup;
   }
   if (!(spawncfg = winpty_spawn_config_new(
       WINPTY_SPAWN_FLAG_AUTO_SHUTDOWN,
-      appname,
-      cmdline,
-      cwd, NULL,
-      &err))) {
+      appname, cmdline, cwd, NULL, &err))) {
     goto cleanup;
   }
   if (!winpty_spawn(wp, spawncfg, &process_handle, NULL, NULL, &err)) {
     goto cleanup;
   }
 
-  if (!RegisterWaitForSingleObject(&ptyproc->finish_wait, process_handle,
-      pty_process_finish1, ptyproc, INFINITE,
-      WT_EXECUTEDEFAULT | WT_EXECUTEONLYONCE)) {
+  if (!RegisterWaitForSingleObject(
+        &ptyproc->finish_wait,
+        process_handle, pty_process_finish1, ptyproc,
+        INFINITE, WT_EXECUTEDEFAULT | WT_EXECUTEONLYONCE)) {
     abort();
   }
 
@@ -115,6 +115,9 @@ int pty_process_spawn(PtyProcess *ptyproc)
   process_handle = NULL;
 
 cleanup:
+  if (err != NULL) {
+    status = (int)winpty_error_code(err);
+  }
   winpty_error_free(err);
   winpty_config_free(cfg);
   winpty_spawn_config_free(spawncfg);
@@ -124,24 +127,11 @@ cleanup:
   if (process_handle != NULL) {
     CloseHandle(process_handle);
   }
-  if (in_req != NULL) {
-    xfree(in_req);
-  }
-  if (out_req != NULL) {
-    xfree(out_req);
-  }
-  if (appname != NULL) {
-    xfree(appname);
-  }
-  if (cmdline !=  NULL) {
-    xfree(cmdline);
-  }
-  if (cwd !=  NULL) {
-    xfree(cwd);
-  }
-  if (err != NULL) {
-    status = (int)winpty_error_code(err);
-  }
+  xfree(in_req);
+  xfree(out_req);
+  xfree(appname);
+  xfree(cmdline);
+  xfree(cwd);
   return status;
 }
 
@@ -205,13 +195,15 @@ static void pty_process_finish2(PtyProcess *ptyproc)
   proc->internal_exit_cb(proc);
 }
 
-int create_appname_cmdline(char **argv, wchar_t **appname, wchar_t **cmdline)
+int create_appname_and_cmdline(char **argv,
+                               wchar_t **appname, wchar_t **cmdline)
+  FUNC_ATTR_NONNULL_ALL
 {
-  char *cmd, *args;
+  char *cmd = NULL, *args = NULL;
   size_t len;
   int ret = 0;
 
-  if (strstr(argv[0], "\\") == NULL
+  if (strstr(argv[0], "\\") == NULL && strstr(argv[0], "/") == NULL
       && os_can_exe((char_u *)argv[0], (char_u **)&cmd, true)) {
     len = STRLEN(cmd) + 1;
   } else {
@@ -219,7 +211,7 @@ int create_appname_cmdline(char **argv, wchar_t **appname, wchar_t **cmdline)
     cmd = xmalloc(len);
     STRCPY(cmd, argv[0]);
   }
-  if ((ret = utf8_to_utf16(cmd, appname)) != 0) {
+  if ((ret = utf8_to_utf16(cmd, appname))) {
     xfree(cmd);
     return ret;
   }
@@ -229,14 +221,13 @@ int create_appname_cmdline(char **argv, wchar_t **appname, wchar_t **cmdline)
   }
   args = xmalloc(len);
   STRCPY(args, cmd);
-  xfree(cmd);
   for (int i = 1; argv[i] != NULL; ++i) {
     STRCAT(args, " ");
     STRCAT(args, argv[i]);
   }
-  if ((ret = utf8_to_utf16(args, cmdline)) != 0) {
-    xfree(args);
-    return ret;
-  }
+  ret = utf8_to_utf16(args, cmdline);
+
+  xfree(cmd);
+  xfree(args);
   return ret;
 }
