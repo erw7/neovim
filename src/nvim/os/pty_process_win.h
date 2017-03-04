@@ -5,6 +5,7 @@
 
 #include <winpty.h>
 
+#include "nvim/ascii.h"
 #include "nvim/event/libuv_process.h"
 #include "nvim/vim.h"
 #include "nvim/types.h"

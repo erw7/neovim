@@ -45,7 +45,7 @@ int pty_process_spawn(PtyProcess *ptyproc)
   char *in_name = NULL, *out_name = NULL;
   HANDLE process_handle = NULL;
   uv_connect_t *in_req = NULL, *out_req = NULL;
-  wchar_t *appname = NULL, *cmdline = NULL, *cwd = NULL;
+  wchar_t *cmdline = NULL, *cwd = NULL;
 
   assert(proc->in && proc->out && !proc->err);
 
@@ -56,7 +56,7 @@ int pty_process_spawn(PtyProcess *ptyproc)
   winpty_config_set_initial_size(
       cfg,
       ptyproc->width,
-      ptyproc->height, &err);
+      ptyproc->height);
 
   if (!(wp = winpty_open(cfg, &err))) {
     goto cleanup;
@@ -84,14 +84,12 @@ int pty_process_spawn(PtyProcess *ptyproc)
   if (proc->cwd != NULL && (status = utf8_to_utf16(proc->cwd, &cwd))) {
     goto cleanup;
   }
-  if ((status = create_appname_and_cmdline(
-          proc->argv,
-          &appname, &cmdline))) {
+  if ((status = build_cmdline(proc->argv, &cmdline))) {
     goto cleanup;
   }
   if (!(spawncfg = winpty_spawn_config_new(
       WINPTY_SPAWN_FLAG_AUTO_SHUTDOWN,
-      appname, cmdline, cwd, NULL, &err))) {
+      NULL, cmdline, cwd, NULL, &err))) {
     goto cleanup;
   }
   if (!winpty_spawn(wp, spawncfg, &process_handle, NULL, NULL, &err)) {
@@ -129,7 +127,6 @@ cleanup:
   }
   xfree(in_req);
   xfree(out_req);
-  xfree(appname);
   xfree(cmdline);
   xfree(cwd);
   return status;
@@ -139,6 +136,7 @@ void pty_process_resize(PtyProcess *ptyproc, uint16_t width,
                         uint16_t height)
   FUNC_ATTR_NONNULL_ALL
 {
+  winpty_error_ptr_t err = NULL;
   if (ptyproc->wp != NULL) {
     winpty_set_size(ptyproc->wp, width, height, NULL);
   }
@@ -195,36 +193,106 @@ static void pty_process_finish2(PtyProcess *ptyproc)
   proc->internal_exit_cb(proc);
 }
 
-int create_appname_and_cmdline(char **argv,
-                               wchar_t **appname, wchar_t **cmdline)
+int build_cmdline(char **argv, wchar_t **cmdline)
   FUNC_ATTR_NONNULL_ALL
 {
-  char *cmd = NULL, *args = NULL;
+  char *cmd = NULL, *args = NULL, *eargv = NULL, *qargv = NULL, *fmt;
   size_t len;
-  int ret = 0;
+  int ret = 0, argc = 1;
+  bool need_quote = false;
 
-  if (strstr(argv[0], "\\") == NULL && strstr(argv[0], "/") == NULL
-      && os_can_exe((char_u *)argv[0], (char_u **)&cmd, true)) {
-    len = STRLEN(cmd) + 1;
+  len = STRLEN(argv[0]) + 1;
+  fmt = "%s";
+  if (strstr(argv[0], " ")) {
+    len += 2;
+    fmt = "\"%s\"";
+  }
+  cmd = xmalloc(len);
+  snprintf(cmd, len, fmt, argv[0]);
+
+  for (int i = 1; argv[i] != NULL; ++i) {
+    ++argc;
+  }
+
+  if (argc == 3 && STRCMP(p_sh, argv[0]) == 0
+      && STRCMP(p_shcf, argv[1]) == 0) {
+    size_t args_len = STRLEN(argv[2]);
+    if (*p_sxq != NUL) {
+      if (STRCMP(p_sxq, "(") == 0) {
+        if (argv[2][0] != '('  || argv[2][args_len - 1] != ')') {
+          need_quote = true;
+        }
+      } else if (STRCMP(p_sxq, "\"(") == 0) {
+        if (argv[2][0] != '"' || argv[2][1] != ')'
+            || argv[2][args_len - 2] != ')' || argv[2][args_len - 1] != '"') {
+          need_quote = true;
+        }
+      } else {
+        if (strstr(argv[2], (char *)p_sxq) != argv[2] &&
+            STRCMP(argv[2] - STRLEN(p_sxq) - 1, p_sxq) != 0) {
+          need_quote = true;
+        }
+      }
+    }
+    if (need_quote) {
+      eargv = argv[2];
+      if (*p_sxe != NUL && STRCMP(p_sxq, "(") == 0) {
+        eargv = (char *)vim_strsave_escaped_ext((char_u *)argv[2], p_sxe, '^', false);
+      }
+      size_t qargv_len = STRLEN(eargv) + STRLEN(p_sxq) * 2 + 1;
+      qargv = xmalloc(qargv_len);
+      if (STRCMP(p_sxq, "(") == 0) {
+        snprintf(qargv, qargv_len, "(%s)", eargv);
+      } else if (STRCMP(p_sxq, "\"(") == 0) {
+        snprintf(qargv, qargv_len, "\"(%s)\"", eargv);
+      } else {
+        snprintf(qargv, qargv_len, "%s%s%s", p_sxq, eargv, p_sxq);
+      }
+      if (eargv != argv[2]) {
+        xfree((void *)eargv);
+      }
+    } else {
+      qargv = argv[2];
+    }
+    len += STRLEN(p_shcf) + STRLEN(qargv) + 3;
+    args = xmalloc(len);
+    snprintf(args, len, "%s %s %s", argv[0], p_shcf, qargv);
+    if (qargv != argv[2]) {
+      xfree(qargv);
+    }
   } else {
-    len = STRLEN(argv[0]) + 1;
-    cmd = xmalloc(len);
-    STRCPY(cmd, argv[0]);
+    for (int i = 1; argv[i] != NULL; ++i) {
+      if (strstr(argv[i], " ") != 0) {
+        len += STRLEN(argv[i]) + 3;
+        for (int n = 0; argv[i][n] != '\0'; ++n) {
+          if (argv[i][n] == '"') {
+            ++len;
+          }
+        }
+      } else {
+        len += STRLEN(argv[i]) + 1;
+      }
+    }
+    args = xmalloc(len);
+    STRCPY(args, cmd);
+    for (int i = 1; argv[i] != NULL; ++i) {
+      eargv = NULL;
+      qargv = NULL;
+      STRCAT(args, " ");
+      if (strstr(argv[i], " ")) {
+        eargv = (char *)vim_strsave_escaped((char_u *)argv[i], (char_u *)"\"");
+        len = STRLEN(eargv) + 3;
+        qargv = xmalloc(len);
+        snprintf(qargv, len, "\"%s\"", eargv);
+        STRCAT(args, qargv);
+        xfree(eargv);
+        xfree(qargv);
+      } else {
+        STRCAT(args, argv[i]);
+      }
+    }
   }
-  if ((ret = utf8_to_utf16(cmd, appname))) {
-    xfree(cmd);
-    return ret;
-  }
-
-  for (int i = 1; argv[i] != NULL; ++i) {
-    len += STRLEN(argv[i]) + 1;
-  }
-  args = xmalloc(len);
-  STRCPY(args, cmd);
-  for (int i = 1; argv[i] != NULL; ++i) {
-    STRCAT(args, " ");
-    STRCAT(args, argv[i]);
-  }
+  fprintf(stderr, "%s\n", args);
   ret = utf8_to_utf16(args, cmdline);
 
   xfree(cmd);
