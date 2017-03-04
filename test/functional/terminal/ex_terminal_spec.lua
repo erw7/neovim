@@ -3,10 +3,10 @@ local Screen = require('test.functional.ui.screen')
 local clear, wait, nvim = helpers.clear, helpers.wait, helpers.nvim
 local nvim_dir, source, eq = helpers.nvim_dir, helpers.source, helpers.eq
 local execute, eval = helpers.execute, helpers.eval
-
-if helpers.pending_win32(pending) then return end
+local iswin = helpers.iswin
 
 describe(':terminal', function()
+  if helpers.pending_win32(pending) then return end
   local screen
 
   before_each(function()
@@ -52,6 +52,9 @@ describe(':terminal (with fake shell)', function()
     -- shell-test.c is a fake shell that prints its arguments and exits.
     nvim('set_option', 'shell', nvim_dir..'/shell-test')
     nvim('set_option', 'shellcmdflag', 'EXE')
+    if iswin() then
+      nvim('set_option', 'shellxquote', '"')
+    end
   end)
 
   -- Invokes `:terminal {cmd}` using a fake shell (shell-test.c) which prints
@@ -83,6 +86,7 @@ describe(':terminal (with fake shell)', function()
   end)
 
   it('allows quotes and slashes', function()
+    if helpers.pending_win32(pending) then return end
     terminal_with_fake_shell([[echo 'hello' \ "world"]])
     wait()
     screen:expect([[
@@ -130,10 +134,15 @@ describe(':terminal (with fake shell)', function()
     eq('term://', string.match(eval('bufname("%")'), "^term://"))
     helpers.feed([[<C-\><C-N>]])
     execute([[find */shadacat.py]])
-    eq('scripts/shadacat.py', eval('bufname("%")'))
+    if iswin() then
+      eq('scripts\\shadacat.py', eval('bufname("%")'))
+    else
+      eq('scripts/shadacat.py', eval('bufname("%")'))
+    end
   end)
 
   it('works with gf', function()
+    if helpers.pending_win32(pending) then return end
     terminal_with_fake_shell([[echo "scripts/shadacat.py"]])
     wait()
     screen:expect([[

@@ -173,6 +173,7 @@ local function iswin()
   return os_name() == 'windows'
 end
 
+
 -- Executes a VimL function.
 -- Fails on VimL error, but does not update v:errmsg.
 local function nvim_call(name, ...)

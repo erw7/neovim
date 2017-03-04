@@ -5,8 +5,6 @@ local wait = helpers.wait
 local eval, execute, source = helpers.eval, helpers.execute, helpers.source
 local eq, neq = helpers.eq, helpers.neq
 
-if helpers.pending_win32(pending) then return end
-
 describe('terminal buffer', function()
   local screen
 
@@ -71,6 +69,7 @@ describe('terminal buffer', function()
   end)
 
   it('cannot be modified directly', function()
+    if helpers.pending_win32(pending) then return end
     feed('<c-\\><c-n>dd')
     screen:expect([[
       tty ready                                         |
@@ -159,6 +158,7 @@ describe('terminal buffer', function()
   end)
 
   it('handles loss of focus gracefully', function()
+    if helpers.pending_win32(pending) then return end
     -- Change the statusline to avoid printing the file name, which varies.
     nvim('set_option', 'statusline', '==========')
     execute('set laststatus=0')
