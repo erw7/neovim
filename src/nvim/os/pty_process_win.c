@@ -136,7 +136,6 @@ void pty_process_resize(PtyProcess *ptyproc, uint16_t width,
                         uint16_t height)
   FUNC_ATTR_NONNULL_ALL
 {
-  winpty_error_ptr_t err = NULL;
   if (ptyproc->wp != NULL) {
     winpty_set_size(ptyproc->wp, width, height, NULL);
   }
@@ -223,13 +222,14 @@ int build_cmdline(char **argv, wchar_t **cmdline)
           need_quote = true;
         }
       } else if (STRCMP(p_sxq, "\"(") == 0) {
-        if (argv[2][0] != '"' || argv[2][1] != ')'
-            || argv[2][args_len - 2] != ')' || argv[2][args_len - 1] != '"') {
+        if (memcmp(argv[2], "\"(", 2)
+            || memcmp(argv[2] + args_len - 2, ")\"", 2)) {
           need_quote = true;
         }
       } else {
-        if (strstr(argv[2], (char *)p_sxq) != argv[2] &&
-            STRCMP(argv[2] - STRLEN(p_sxq) - 1, p_sxq) != 0) {
+        size_t sxq_len = STRLEN(p_sxq);
+        if (memcmp(argv[2], p_sxq, sxq_len)
+            || memcmp(argv[2] + args_len - sxq_len, p_sxq, sxq_len)) {
           need_quote = true;
         }
       }
@@ -292,7 +292,6 @@ int build_cmdline(char **argv, wchar_t **cmdline)
       }
     }
   }
-  fprintf(stderr, "%s\n", args);
   ret = utf8_to_utf16(args, cmdline);
 
   xfree(cmd);
