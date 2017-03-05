@@ -192,109 +192,102 @@ static void pty_process_finish2(PtyProcess *ptyproc)
   proc->internal_exit_cb(proc);
 }
 
-int build_cmdline(char **argv, wchar_t **cmdline)
+static int build_cmdline(char **argv, wchar_t **cmdline)
   FUNC_ATTR_NONNULL_ALL
 {
-  char *cmd = NULL, *args = NULL, *eargv = NULL, *qargv = NULL, *fmt;
-  size_t len;
-  int ret = 0, argc = 1;
-  bool need_quote = false;
+  ArgNode *head = NULL, *current = NULL;
+  char *args = NULL;
+  size_t args_len = 0, argc = 0;
+  int ret;
 
-  len = STRLEN(argv[0]) + 1;
-  fmt = "%s";
-  if (strstr(argv[0], " ")) {
-    len += 2;
-    fmt = "\"%s\"";
-  }
-  cmd = xmalloc(len);
-  snprintf(cmd, len, fmt, argv[0]);
-
-  for (int i = 1; argv[i] != NULL; ++i) {
-    ++argc;
-  }
-
-  if (argc == 3 && STRCMP(p_sh, argv[0]) == 0
-      && STRCMP(p_shcf, argv[1]) == 0) {
-    size_t args_len = STRLEN(argv[2]);
-    if (*p_sxq != NUL) {
-      if (STRCMP(p_sxq, "(") == 0) {
-        if (argv[2][0] != '('  || argv[2][args_len - 1] != ')') {
-          need_quote = true;
-        }
-      } else if (STRCMP(p_sxq, "\"(") == 0) {
-        if (memcmp(argv[2], "\"(", 2)
-            || memcmp(argv[2] + args_len - 2, ")\"", 2)) {
-          need_quote = true;
-        }
-      } else {
-        size_t sxq_len = STRLEN(p_sxq);
-        if (memcmp(argv[2], p_sxq, sxq_len)
-            || memcmp(argv[2] + args_len - sxq_len, p_sxq, sxq_len)) {
-          need_quote = true;
-        }
-      }
-    }
-    if (need_quote) {
-      eargv = argv[2];
-      if (*p_sxe != NUL && STRCMP(p_sxq, "(") == 0) {
-        eargv = (char *)vim_strsave_escaped_ext((char_u *)argv[2], p_sxe, '^', false);
-      }
-      size_t qargv_len = STRLEN(eargv) + STRLEN(p_sxq) * 2 + 1;
-      qargv = xmalloc(qargv_len);
-      if (STRCMP(p_sxq, "(") == 0) {
-        snprintf(qargv, qargv_len, "(%s)", eargv);
-      } else if (STRCMP(p_sxq, "\"(") == 0) {
-        snprintf(qargv, qargv_len, "\"(%s)\"", eargv);
-      } else {
-        snprintf(qargv, qargv_len, "%s%s%s", p_sxq, eargv, p_sxq);
-      }
-      if (eargv != argv[2]) {
-        xfree((void *)eargv);
-      }
+  while (*argv) {
+    if (current == NULL) {
+      head = xmalloc(sizeof(ArgNode));
+      current = head;
     } else {
-      qargv = argv[2];
+      current->next = xmalloc(sizeof(ArgNode));
+      current = current->next;
     }
-    len += STRLEN(p_shcf) + STRLEN(qargv) + 3;
-    args = xmalloc(len);
-    snprintf(args, len, "%s %s %s", argv[0], p_shcf, qargv);
-    if (qargv != argv[2]) {
-      xfree(qargv);
-    }
-  } else {
-    for (int i = 1; argv[i] != NULL; ++i) {
-      if (strstr(argv[i], " ") != 0) {
-        len += STRLEN(argv[i]) + 3;
-        for (int n = 0; argv[i][n] != '\0'; ++n) {
-          if (argv[i][n] == '"') {
-            ++len;
-          }
-        }
-      } else {
-        len += STRLEN(argv[i]) + 1;
-      }
-    }
-    args = xmalloc(len);
-    STRCPY(args, cmd);
-    for (int i = 1; argv[i] != NULL; ++i) {
-      eargv = NULL;
-      qargv = NULL;
-      STRCAT(args, " ");
-      if (strstr(argv[i], " ")) {
-        eargv = (char *)vim_strsave_escaped((char_u *)argv[i], (char_u *)"\"");
-        len = STRLEN(eargv) + 3;
-        qargv = xmalloc(len);
-        snprintf(qargv, len, "\"%s\"", eargv);
-        STRCAT(args, qargv);
-        xfree(eargv);
-        xfree(qargv);
-      } else {
-        STRCAT(args, argv[i]);
-      }
+    current->next = NULL;
+    current->arg = (char *)xmalloc(strlen(*argv) * 2 + 3);
+    quote_cmd_arg(*argv, current->arg);
+    args_len += strlen(current->arg);
+    ++argc;
+    ++argv;
+  }
+  args = xmalloc(args_len + argc);
+  *args = NUL;
+  while (1) {
+    current = head;
+    strcat(args, current->arg);
+    head = current->next;
+    xfree(current->arg);
+    xfree(current);
+    if (head == NULL) {
+      break;
+    } else {
+      strcat(args, " ");
     }
   }
   ret = utf8_to_utf16(args, cmdline);
-
-  xfree(cmd);
   xfree(args);
   return ret;
+}
+
+/*
+ * Emulate quote_cmd_arg of libuv and quotes command line arguments
+ */
+static void quote_cmd_arg(const char *source, char *target)
+  FUNC_ATTR_NONNULL_ALL
+{
+  size_t len = strlen(source);
+  size_t i;
+  bool quote_hit = true;
+  char *start = target;
+  char tmp;
+
+  if (len == 0) {
+    *(target++) = '"';
+    *(target++) = '"';
+    *target = NUL;
+    return;
+  }
+
+  if (NULL == strpbrk(source, " \t\"")) {
+    strcpy(target, source);
+    return;
+  }
+
+  if (NULL == strpbrk(source, "\"\\")) {
+    *(target++) = '"';
+    strncpy(target, source, len);
+    target += len;
+    *(target++) = '"';
+    *target = NUL;
+    return;
+  }
+
+  *(target++) = NUL;
+  *(target++) = '"';
+  for (i = len; i > 0; --i) {
+    *(target++) = source[i - 1];
+
+    if (quote_hit && source[i - 1] == '\\') {
+      *(target++) = '\\';
+    } else if (source[i - 1] == '"') {
+      quote_hit = true;
+      *(target++) = '\\';
+    } else {
+      quote_hit = false;
+    }
+  }
+  *target = '"';
+  while(start < target) {
+    tmp = *start;
+    *start = *target;
+    *target = tmp;
+    ++start;
+    --target;
+  }
+  return;
 }

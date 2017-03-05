@@ -21,6 +21,11 @@ typedef struct pty_process {
   uv_timer_t wait_eof_timer;
 } PtyProcess;
 
+typedef struct arg_node {
+  char *arg;
+  struct arg_node *next;
+} ArgNode;
+
 static inline PtyProcess pty_process_init(Loop *loop, void *data)
 {
   PtyProcess rv;

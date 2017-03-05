@@ -52,9 +52,6 @@ describe(':terminal (with fake shell)', function()
     -- shell-test.c is a fake shell that prints its arguments and exits.
     nvim('set_option', 'shell', nvim_dir..'/shell-test')
     nvim('set_option', 'shellcmdflag', 'EXE')
-    if iswin() then
-      nvim('set_option', 'shellxquote', '"')
-    end
   end)
 
   -- Invokes `:terminal {cmd}` using a fake shell (shell-test.c) which prints
@@ -86,7 +83,6 @@ describe(':terminal (with fake shell)', function()
   end)
 
   it('allows quotes and slashes', function()
-    if helpers.pending_win32(pending) then return end
     terminal_with_fake_shell([[echo 'hello' \ "world"]])
     wait()
     screen:expect([[
