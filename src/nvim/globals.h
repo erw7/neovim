@@ -1150,7 +1150,6 @@ EXTERN char_u e_noprev[] INIT(= N_("E34: No previous command"));
 EXTERN char_u e_noprevre[] INIT(= N_("E35: No previous regular expression"));
 EXTERN char_u e_norange[] INIT(= N_("E481: No range allowed"));
 EXTERN char_u e_noroom[] INIT(= N_("E36: Not enough room"));
-EXTERN char_u e_notcreate[] INIT(= N_("E482: Can't create file %s"));
 EXTERN char_u e_notmp[] INIT(= N_("E483: Can't get temp file name"));
 EXTERN char_u e_notopen[] INIT(= N_("E484: Can't open file %s"));
 EXTERN char_u e_notread[] INIT(= N_("E485: Can't read file %s"));
@@ -1172,11 +1171,7 @@ EXTERN char_u e_loclist[] INIT(= N_("E776: No location list"));
 EXTERN char_u e_re_damg[] INIT(= N_("E43: Damaged match string"));
 EXTERN char_u e_re_corr[] INIT(= N_("E44: Corrupted regexp program"));
 EXTERN char_u e_readonly[] INIT(= N_(
-        "E45: 'readonly' option is set (add ! to override)"));
-EXTERN char_u e_readonlyvar[] INIT(= N_(
-        "E46: Cannot change read-only variable \"%s\""));
-EXTERN char_u e_readonlysbx[] INIT(= N_(
-        "E794: Cannot set variable in the sandbox: \"%s\""));
+    "E45: 'readonly' option is set (add ! to override)"));
 EXTERN char_u e_readerrf[] INIT(= N_("E47: Error while reading errorfile"));
 EXTERN char_u e_sandbox[] INIT(= N_("E48: Not allowed in sandbox"));
 EXTERN char_u e_secure[] INIT(= N_("E523: Not allowed here"));

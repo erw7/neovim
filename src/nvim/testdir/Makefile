@@ -34,6 +34,7 @@ NEW_TESTS ?= \
 	    test_cscope.res \
 	    test_digraph.res \
 	    test_diffmode.res \
+	    test_farsi.res \
 	    test_filter_map.res \
 	    test_gn.res \
 	    test_hardcopy.res \
@@ -41,13 +42,14 @@ NEW_TESTS ?= \
 	    test_history.res \
 	    test_increment.res \
 	    test_increment_dbcs.res \
-		test_lambda.res \
+	    test_lambda.res \
 	    test_langmap.res \
 	    test_match.res \
 	    test_matchadd_conceal.res \
 	    test_quickfix.res \
 	    test_signs.res \
 	    test_syntax.res \
+	    test_textobjects.res \
 	    test_timers.res \
 	    test_usercommands.res \
 	    test_viml.res \

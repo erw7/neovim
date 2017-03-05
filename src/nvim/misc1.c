@@ -51,6 +51,7 @@
 #include "nvim/os/input.h"
 #include "nvim/os/time.h"
 #include "nvim/event/stream.h"
+#include "nvim/buffer.h"
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "misc1.c.generated.h"
@@ -1405,7 +1406,6 @@ void ins_char_bytes(char_u *buf, size_t charlen)
     coladvance_force(getviscol());
   }
 
-  int c = buf[0];
   size_t col = (size_t)curwin->w_cursor.col;
   linenr_T lnum = curwin->w_cursor.lnum;
   char_u *oldp = ml_get(lnum);
@@ -1498,10 +1498,7 @@ void ins_char_bytes(char_u *buf, size_t charlen)
       && msg_silent == 0
       && !ins_compl_active()
       ) {
-    if (has_mbyte)
-      showmatch(mb_ptr2char(buf));
-    else
-      showmatch(c);
+    showmatch(mb_ptr2char(buf));
   }
 
   if (!p_ri || (State & REPLACE_FLAG)) {
@@ -1788,7 +1785,7 @@ void changed(void)
     }
     changed_int();
   }
-  ++curbuf->b_changedtick;
+  buf_set_changedtick(curbuf, curbuf->b_changedtick + 1);
 }
 
 /*
@@ -2147,7 +2144,7 @@ unchanged (
     redraw_tabline = TRUE;
     need_maketitle = TRUE;          /* set window title later */
   }
-  ++buf->b_changedtick;
+  buf_set_changedtick(buf, buf->b_changedtick + 1);
 }
 
 /*

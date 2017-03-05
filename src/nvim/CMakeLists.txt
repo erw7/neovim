@@ -93,7 +93,6 @@ list(REMOVE_ITEM NEOVIM_SOURCES ${to_remove})
 
 # Legacy files that do not yet pass -Wconversion.
 set(CONV_SOURCES
-  buffer.c
   diff.c
   edit.c
   eval.c
@@ -319,6 +318,7 @@ if(WIN32)
     COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_BINARY_DIR}/windows_runtime_deps/platforms
 
     COMMAND ${CMAKE_COMMAND} -E copy "${DEPS_PREFIX}/bin/ca-bundle.crt"       ${PROJECT_BINARY_DIR}/windows_runtime_deps/
+    COMMAND ${CMAKE_COMMAND} -E copy "${DEPS_PREFIX}/bin/cat.exe"             ${PROJECT_BINARY_DIR}/windows_runtime_deps/
     COMMAND ${CMAKE_COMMAND} -E copy "${DEPS_PREFIX}/bin/curl.exe"            ${PROJECT_BINARY_DIR}/windows_runtime_deps/
     COMMAND ${CMAKE_COMMAND} -E copy "${DEPS_PREFIX}/bin/diff.exe"            ${PROJECT_BINARY_DIR}/windows_runtime_deps/
     COMMAND ${CMAKE_COMMAND} -E copy "${DEPS_PREFIX}/bin/tee.exe"             ${PROJECT_BINARY_DIR}/windows_runtime_deps/
@@ -342,7 +342,6 @@ if(WIN32)
 
     COMMAND ${CMAKE_COMMAND} -E copy "${DEPS_PREFIX}/bin/platforms/qwindows.dll" ${PROJECT_BINARY_DIR}/windows_runtime_deps/platforms/
     )
-
   add_dependencies(nvim_runtime_deps external_blobs)
 endif()
 

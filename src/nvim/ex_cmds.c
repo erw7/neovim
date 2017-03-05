@@ -1131,11 +1131,12 @@ static void do_filter(
    */
   ++no_wait_return;             /* don't call wait_return() while busy */
   if (itmp != NULL && buf_write(curbuf, itmp, NULL, line1, line2, eap,
-          FALSE, FALSE, FALSE, TRUE) == FAIL) {
-    msg_putchar('\n');                  /* keep message from buf_write() */
-    --no_wait_return;
-    if (!aborting())
-      (void)EMSG2(_(e_notcreate), itmp);        /* will call wait_return */
+                                false, false, false, true) == FAIL) {
+    msg_putchar('\n');  // Keep message from buf_write().
+    no_wait_return--;
+    if (!aborting()) {
+      EMSG2(_("E482: Can't create file %s"), itmp);  // Will call wait_return.
+    }
     goto filterend;
   }
   if (curbuf != old_curbuf)
@@ -6138,7 +6139,7 @@ void ex_substitute(exarg_T *eap)
     // restore it so that undotree() is identical before/after the preview.
     curbuf->b_u_newhead = save_b_u_newhead;
     curbuf->b_u_time_cur = save_b_u_time_cur;
-    curbuf->b_changedtick = save_changedtick;
+    buf_set_changedtick(curbuf, save_changedtick);
   }
   if (buf_valid(preview_buf)) {
     // XXX: Must do this *after* u_undo_and_forget(), why?
