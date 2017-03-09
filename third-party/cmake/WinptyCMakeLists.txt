@@ -1,0 +1,89 @@
+cmake_minimum_required(VERSION 2.8.7)
+project(winpty)
+
+include_directories(${CMAKE_BINARY_DIR}/gen)
+
+set(VERSION_TXT ${CMAKE_SOURCE_DIR}/VERSION.txt)
+set(GENVERSION_H ${CMAKE_BINARY_DIR}/gen/GenVersion.h)
+set(PRECOMPILEDHEADER_H PrecompiledHeader.h)
+
+set(MINGW_LDFLAGS "-static -static-libgcc -static-libstdc++")
+set(COMMON_DEFINITIONS "-DUNICODE -D_UNICODE -D_WIN32_WINNT=0x0501")
+set(MSVC_DEFINITIONS "-DNOMINMAX")
+set(MINGW_CXX_FLAGS "-MMD -Wall")
+set(MSVC_CXX_FLAGS "/EHsc")
+
+if (MINGW)
+  option(USE_PCH "Use PrecompiledHeader." ON)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${MINGW_CXX_FLAGS}")
+  set(CMAKE_SHARED_LINKER_FLAGS "${MINGW_LDFLAGS}")
+  set(CMAKE_EXE_LINKER_FLAGS "${MINGW_LDFLAGS}")
+  add_definitions(${COMMON_DEFINITIONS})
+elseif(MSVC)
+  option(USE_PCH "Use PrecompiledHeader." OFF)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${MSVC_CXX_FLAGS}")
+  add_definitions("${COMMON_DEFINITIONS} ${MSVC_DEFINITIONS}")
+endif()
+
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/gen)
+find_program(GIT_PRG git)
+execute_process(
+  COMMAND ${GIT_PRG} rev-parse HEAD
+  OUTPUT_VARIABLE COMMIT_HASH
+)
+string(REPLACE "\n" "" COMMIT_HASH ${COMMIT_HASH})
+file(READ ${VERSION_TXT} VERSION)
+string(REPLACE "\n" "" VERSION ${VERSION})
+file(WRITE ${GENVERSION_H} "const char GenVersion_Version[] = \"${VERSION}\";\n")
+file(APPEND ${GENVERSION_H} "const char GenVersion_Commit[] = \"${COMMIT_HASH}\";")
+
+if(USE_PCH)
+  file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/mingw)
+  file(COPY ${CMAKE_SOURCE_DIR}/src/shared/${PRECOMPILEDHEADER_H} DESTINATION ${CMAKE_BINARY_DIR}/mingw)
+  separate_arguments(CXX_FLAGS_LIST WINDOWS_COMMAND "${MINGW_CXX_FLAGS} ${COMMON_DEFINITIONS}")
+  add_custom_target(precompileheader
+    COMMAND ${CMAKE_CXX_COMPILER} ${CXX_FLAGS_LIST}
+      -c -o ${PRECOMPILEDHEADER_H}.gch
+      ${PRECOMPILEDHEADER_H}
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/mingw
+    )
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -include ${CMAKE_BINARY_DIR}/mingw/PrecompiledHeader.h")
+endif()
+
+
+file(GLOB SHARED_SOURCES ${CMAKE_SOURCE_DIR}/src/shared/*.cc)
+file(GLOB LIBWINPTY_SOURCES ${CMAKE_SOURCE_DIR}/src/libwinpty/*.cc)
+file(GLOB WINPTY_AGENT_SOURCES ${CMAKE_SOURCE_DIR}/src/agent/*.cc)
+file(GLOB HEADER_FILES ${CMAKE_SOURCE_DIR}/src/include/*.h)
+list(REMOVE_ITEM WINPTY_AGENT_SOURCES "${CMAKE_SOURCE_DIR}/src/agent/UnicodeEncodingTest.cc")
+list(REMOVE_ITEM SHARED_SOURCES "${CMAKE_SOURCE_DIR}/src/shared/StringBuilderTest.cc")
+
+add_library(winpty SHARED ${LIBWINPTY_SOURCES} ${SHARED_SOURCES})
+set_target_properties(winpty PROPERTIES LINKER_LANGUAGE CXX)
+set_target_properties(winpty PROPERTIES COMPILE_DEFINITIONS "COMPILING_WINPTY_DLL")
+set_target_properties(winpty PROPERTIES PUBLIC_HEADER "${HEADER_FILES}")
+if (MINGW)
+  set_target_properties(winpty PROPERTIES PREFIX "")
+  set_target_properties(winpty PROPERTIES IMPORT_PREFIX "")
+  set_target_properties(winpty PROPERTIES IMPORT_SUFFIX ".lib")
+elseif(MSVC)
+  target_link_libraries(winpty advapi32.lib user32.lib)
+endif()
+
+add_executable(winpty-agent ${WINPTY_AGENT_SOURCES} ${SHARED_SOURCES})
+set_target_properties(winpty-agent PROPERTIES LINKER_LANGUAGE CXX)
+set_target_properties(winpty-agent PROPERTIES COMPILE_DEFINITIONS "WINPTY_AGENT_ASSERT")
+if (MSVC)
+  target_link_libraries(winpty-agent advapi32.lib shell32.lib user32.lib)
+endif()
+
+if(USE_PCH)
+  add_dependencies(winpty precompileheader)
+  add_dependencies(winpty-agent precompileheader)
+endif()
+
+install(TARGETS winpty-agent winpty
+  RUNTIME DESTINATION bin
+  LIBRARY DESTINATION lib
+  PUBLIC_HEADER DESTINATION include)
+install(FILES ${CMAKE_BINARY_DIR}/winpty.lib DESTINATION lib)

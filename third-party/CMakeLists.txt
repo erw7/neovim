@@ -38,6 +38,10 @@ else()
   option(USE_BUNDLED_GPERF "Use the bundled version of gperf." OFF)
 endif()
 
+if(USE_BUNDLED AND WIN32)
+  option(USE_BUNDLED_WINPTY "Use the bundled version of winpty." ON)
+endif()
+
 option(USE_EXISTING_SRC_DIR "Skip download of deps sources in case of existing source directory." OFF)
 
 if(UNIX)
@@ -130,8 +134,8 @@ set(WINGUI_SHA256 07e2838c713bda9221a0b8022f4c9df3f8bbe69bb0b2fbeec473a0e8f0e779
 set(WIN32YANK_URL https://github.com/equalsraf/win32yank/releases/download/v0.0.2/win32yank.zip)
 set(WIN32YANK_SHA256 78869bf68565607cda1b6a3d549e2487d59d6f0f16f9b003e123c0086f90309d)
 
-set(WINPTY_URL https://github.com/rprichard/winpty)
-set(WINPTY_TAG neovim-demo)
+set(WINPTY_URL https://github.com/rprichard/winpty/archive/0.4.2.zip)
+set(WINPTY_SHA256 0a2433a4aa73949e11a224b50e51666aebd97d06e03dd5eea2e0db87027f10e3)
 
 if(USE_BUNDLED_UNIBILIUM)
   include(BuildUnibilium)
@@ -189,7 +193,9 @@ if(WIN32)
   GetBinaryDep(TARGET wingui
     INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_directory bin ${DEPS_INSTALL_DIR}/bin)
 
-  include(BuildWinpty)
+  if(USE_BUNDLED_WINPTY)
+    include(BuildWinpty)
+  endif()
 endif()
 
 add_custom_target(clean-shared-libraries
