@@ -4,6 +4,7 @@ local thelpers = require('test.functional.terminal.helpers')
 local clear, eq, curbuf = helpers.clear, helpers.eq, helpers.curbuf
 local feed, nvim_dir, execute = helpers.feed, helpers.nvim_dir, helpers.execute
 local iswin, wait_sigwinch = helpers.iswin, thelpers.wait_sigwinch
+local meths, nvim = helpers.meths, helpers.nvim
 local eval = helpers.eval
 local command = helpers.command
 local wait = helpers.wait
@@ -402,10 +403,15 @@ describe("'scrollback' option", function()
   end
 
   it('set to 0 behaves as 1', function()
-    local screen = thelpers.screen_setup(nil, "['sh']", 30)
+    local screen = thelpers.screen_setup(nil, nil, 30)
 
     curbufmeths.set_option('scrollback', 0)
-    feed_data('for i in $(seq 1 30); do echo "line$i"; done\n')
+    local lines = {}
+    for i  = 1, 30 do
+      table.insert(lines, 'line'..tostring(i))
+    end
+    table.insert(lines, '')
+    feed_data(lines)
     screen:expect('line30                        ', nil, nil, nil, true)
     retry(nil, nil, function() expect_lines(7) end)
 
@@ -413,19 +419,19 @@ describe("'scrollback' option", function()
   end)
 
   it('deletes lines (only) if necessary', function()
-    local screen = thelpers.screen_setup(nil, "['sh']", 30)
+    local screen = thelpers.screen_setup(nil, nil, 30)
+    local lines = {}
+    for i  = 1, 30 do
+      table.insert(lines, 'line'..tostring(i))
+    end
+    table.insert(lines, '')
+    feed_data(lines)
 
     curbufmeths.set_option('scrollback', 200)
 
-    -- Wait for prompt.
-    screen:expect('$', nil, nil, nil, true)
-
-    wait()
-    feed_data('for i in $(seq 1 30); do echo "line$i"; done\n')
-
     screen:expect('line30                        ', nil, nil, nil, true)
 
-    retry(nil, nil, function() expect_lines(33) end)
+    retry(nil, nil, function() expect_lines(32) end)
     curbufmeths.set_option('scrollback', 10)
     wait()
     retry(nil, nil, function() expect_lines(16) end)
@@ -434,11 +440,16 @@ describe("'scrollback' option", function()
     -- Terminal job data is received asynchronously, may happen before the
     -- 'scrollback' option is synchronized with the internal sb_buffer.
     command('sleep 100m')
-    feed_data('for i in $(seq 1 40); do echo "line$i"; done\n')
+    lines = {}
+    for i = 1, 40 do
+      table.insert(lines, 'line'..tostring(i))
+    end
+    table.insert(lines, '')
+    feed_data(lines)
 
     screen:expect('line40                        ', nil, nil, nil, true)
 
-    retry(nil, nil, function() expect_lines(58) end)
+    retry(nil, nil, function() expect_lines(56) end)
     -- Verify off-screen state
     eq('line35', eval("getline(line('w0') - 1)"))
     eq('line26', eval("getline(line('w0') - 10)"))
