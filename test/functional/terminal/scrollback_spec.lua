@@ -4,7 +4,6 @@ local thelpers = require('test.functional.terminal.helpers')
 local clear, eq, curbuf = helpers.clear, helpers.eq, helpers.curbuf
 local feed, nvim_dir, execute = helpers.feed, helpers.nvim_dir, helpers.execute
 local iswin, wait_sigwinch = helpers.iswin, thelpers.wait_sigwinch
-local meths, nvim = helpers.meths, helpers.nvim
 local eval = helpers.eval
 local command = helpers.command
 local wait = helpers.wait
