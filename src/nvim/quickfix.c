@@ -3023,11 +3023,11 @@ void ex_make(exarg_T *eap)
   case CMD_lgrepadd:  au_name = (char_u *)"lgrepadd"; break;
   default: break;
   }
-  if (au_name != NULL) {
-    apply_autocmds(EVENT_QUICKFIXCMDPRE, au_name,
-        curbuf->b_fname, TRUE, curbuf);
-    if (did_throw || force_abort)
+  if (au_name != NULL && apply_autocmds(EVENT_QUICKFIXCMDPRE, au_name,
+                                        curbuf->b_fname, true, curbuf)) {
+    if (aborting()) {
       return;
+    }
   }
 
   if (eap->cmdidx == CMD_lmake || eap->cmdidx == CMD_lgrep
@@ -3487,11 +3487,11 @@ void ex_vimgrep(exarg_T *eap)
   case CMD_lgrepadd:    au_name = (char_u *)"lgrepadd"; break;
   default: break;
   }
-  if (au_name != NULL) {
-    apply_autocmds(EVENT_QUICKFIXCMDPRE, au_name,
-        curbuf->b_fname, TRUE, curbuf);
-    if (did_throw || force_abort)
+  if (au_name != NULL && apply_autocmds(EVENT_QUICKFIXCMDPRE, au_name,
+                                        curbuf->b_fname, true, curbuf)) {
+    if (aborting()) {
       return;
+    }
   }
 
   if (eap->cmdidx == CMD_lgrep
@@ -4278,12 +4278,43 @@ int set_errorlist(win_T *wp, list_T *list, int action, char_u *title,
  */
 void ex_cbuffer(exarg_T *eap)
 {
-  buf_T       *buf = NULL;
-  qf_info_T   *qi = &ql_info;
+  buf_T *buf = NULL;
+  qf_info_T *qi = &ql_info;
+  const char *au_name = NULL;
 
   if (eap->cmdidx == CMD_lbuffer || eap->cmdidx == CMD_lgetbuffer
       || eap->cmdidx == CMD_laddbuffer) {
     qi = ll_get_or_alloc_list(curwin);
+  }
+
+  switch (eap->cmdidx) {
+    case CMD_cbuffer:
+      au_name = "cbuffer";
+      break;
+    case CMD_cgetbuffer:
+      au_name = "cgetbuffer";
+      break;
+    case CMD_caddbuffer:
+      au_name = "caddbuffer";
+      break;
+    case CMD_lbuffer:
+      au_name = "lbuffer";
+      break;
+    case CMD_lgetbuffer:
+      au_name = "lgetbuffer";
+      break;
+    case CMD_laddbuffer:
+      au_name = "laddbuffer";
+      break;
+    default:
+      break;
+  }
+
+  if (au_name != NULL && apply_autocmds(EVENT_QUICKFIXCMDPRE, (char_u *)au_name,
+                                        curbuf->b_fname, true, curbuf)) {
+    if (aborting()) {
+      return;
+    }
   }
 
   if (*eap->arg == NUL)
@@ -4312,13 +4343,17 @@ void ex_cbuffer(exarg_T *eap)
       }
 
       if (qf_init_ext(qi, NULL, buf, NULL, p_efm,
-              (eap->cmdidx != CMD_caddbuffer
-               && eap->cmdidx != CMD_laddbuffer),
-              eap->line1, eap->line2,
-              qf_title) > 0
-          && (eap->cmdidx == CMD_cbuffer
-              || eap->cmdidx == CMD_lbuffer))
-        qf_jump(qi, 0, 0, eap->forceit);          /* display first error */
+                      (eap->cmdidx != CMD_caddbuffer
+                       && eap->cmdidx != CMD_laddbuffer),
+                      eap->line1, eap->line2, qf_title) > 0) {
+        if (au_name != NULL) {
+          apply_autocmds(EVENT_QUICKFIXCMDPOST, (char_u *)au_name,
+                         curbuf->b_fname, true, curbuf);
+        }
+        if (eap->cmdidx == CMD_cbuffer || eap->cmdidx == CMD_lbuffer) {
+          qf_jump(qi, 0, 0, eap->forceit);  // display first error
+        }
+      }
     }
   }
 }
@@ -4329,12 +4364,42 @@ void ex_cbuffer(exarg_T *eap)
  */
 void ex_cexpr(exarg_T *eap)
 {
-  typval_T    *tv;
-  qf_info_T   *qi = &ql_info;
+  typval_T *tv;
+  qf_info_T *qi = &ql_info;
+  const char *au_name = NULL;
 
   if (eap->cmdidx == CMD_lexpr || eap->cmdidx == CMD_lgetexpr
       || eap->cmdidx == CMD_laddexpr) {
     qi = ll_get_or_alloc_list(curwin);
+  }
+
+  switch (eap->cmdidx) {
+    case CMD_cexpr:
+      au_name = "cexpr";
+      break;
+    case CMD_cgetexpr:
+      au_name = "cgetexpr";
+      break;
+    case CMD_caddexpr:
+      au_name = "caddexpr";
+      break;
+    case CMD_lexpr:
+      au_name = "lexpr";
+      break;
+    case CMD_lgetexpr:
+      au_name = "lgetexpr";
+      break;
+    case CMD_laddexpr:
+      au_name = "laddexpr";
+      break;
+    default:
+      break;
+  }
+  if (au_name != NULL && apply_autocmds(EVENT_QUICKFIXCMDPRE, (char_u *)au_name,
+                                        curbuf->b_fname, true, curbuf)) {
+    if (aborting()) {
+      return;
+    }
   }
 
   /* Evaluate the expression.  When the result is a string or a list we can
@@ -4344,14 +4409,20 @@ void ex_cexpr(exarg_T *eap)
     if ((tv->v_type == VAR_STRING && tv->vval.v_string != NULL)
         || (tv->v_type == VAR_LIST && tv->vval.v_list != NULL)) {
       if (qf_init_ext(qi, NULL, NULL, tv, p_efm,
-              (eap->cmdidx != CMD_caddexpr
-               && eap->cmdidx != CMD_laddexpr),
-              (linenr_T)0, (linenr_T)0, *eap->cmdlinep) > 0
-          && (eap->cmdidx == CMD_cexpr
-              || eap->cmdidx == CMD_lexpr))
-        qf_jump(qi, 0, 0, eap->forceit);          /* display first error */
-    } else
+                      (eap->cmdidx != CMD_caddexpr
+                       && eap->cmdidx != CMD_laddexpr),
+                      (linenr_T)0, (linenr_T)0, *eap->cmdlinep) > 0) {
+        if (au_name != NULL) {
+          apply_autocmds(EVENT_QUICKFIXCMDPOST, (char_u *)au_name,
+                         curbuf->b_fname, true, curbuf);
+        }
+        if (eap->cmdidx == CMD_cexpr || eap->cmdidx == CMD_lexpr) {
+          qf_jump(qi, 0, 0, eap->forceit);  // display first error
+        }
+      }
+    } else {
       EMSG(_("E777: String or List expected"));
+    }
     free_tv(tv);
   }
 }
@@ -4382,11 +4453,11 @@ void ex_helpgrep(exarg_T *eap)
   case CMD_lhelpgrep: au_name = (char_u *)"lhelpgrep"; break;
   default: break;
   }
-  if (au_name != NULL) {
-    apply_autocmds(EVENT_QUICKFIXCMDPRE, au_name,
-        curbuf->b_fname, TRUE, curbuf);
-    if (did_throw || force_abort)
+  if (au_name != NULL && apply_autocmds(EVENT_QUICKFIXCMDPRE, au_name,
+                                        curbuf->b_fname, true, curbuf)) {
+    if (aborting()) {
       return;
+    }
   }
 
   /* Make 'cpoptions' empty, the 'l' flag should not be used here. */
