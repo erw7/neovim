@@ -700,16 +700,9 @@ readfile (
   wasempty = (curbuf->b_ml.ml_flags & ML_EMPTY);
 
   if (!recoverymode && !filtering && !(flags & READ_DUMMY)) {
-    /*
-     * Show the user that we are busy reading the input.  Sometimes this
-     * may take a while.  When reading from stdin another program may
-     * still be running, don't move the cursor to the last line, unless
-     * always using the GUI.
-     */
-    if (read_stdin) {
-      mch_msg(_("Nvim: Reading from stdin...\n"));
-    } else if (!read_buffer)
+    if (!read_stdin && !read_buffer) {
       filemess(curbuf, sfname, (char_u *)"", 0);
+    }
   }
 
   msg_scroll = FALSE;                   /* overwrite the file message */
@@ -1742,16 +1735,11 @@ failed:
   }
 # endif
 
-  if (!read_buffer && !read_stdin)
-    close(fd);                                  /* errors are ignored */
-#ifdef HAVE_FD_CLOEXEC
-  else {
-    int fdflags = fcntl(fd, F_GETFD);
-    if (fdflags >= 0 && (fdflags & FD_CLOEXEC) == 0) {
-      (void)fcntl(fd, F_SETFD, fdflags | FD_CLOEXEC);
-    }
+  if (!read_buffer && !read_stdin) {
+    close(fd);  // errors are ignored
+  } else {
+    (void)os_set_cloexec(fd);
   }
-#endif
   xfree(buffer);
 
   if (read_stdin) {
@@ -4733,7 +4721,6 @@ check_timestamps (
     int focus                      /* called for GUI focus event */
 )
 {
-  buf_T       *buf;
   int didit = 0;
   int n;
 
@@ -4752,14 +4739,14 @@ check_timestamps (
 
   if (!stuff_empty() || global_busy || !typebuf_typed()
       || autocmd_busy || curbuf_lock > 0 || allbuf_lock > 0
-      )
-    need_check_timestamps = TRUE;               /* check later */
-  else {
-    ++no_wait_return;
-    did_check_timestamps = TRUE;
-    already_warned = FALSE;
-    for (buf = firstbuf; buf != NULL; ) {
-      /* Only check buffers in a window. */
+      ) {
+    need_check_timestamps = true;               // check later
+  } else {
+    no_wait_return++;
+    did_check_timestamps = true;
+    already_warned = false;
+    FOR_ALL_BUFFERS(buf) {
+      // Only check buffers in a window.
       if (buf->b_nwindows > 0) {
         bufref_T bufref;
         set_bufref(&bufref, buf);
@@ -4773,7 +4760,6 @@ check_timestamps (
           continue;
         }
       }
-      buf = buf->b_next;
     }
     --no_wait_return;
     need_check_timestamps = FALSE;

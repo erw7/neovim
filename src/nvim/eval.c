@@ -16932,7 +16932,7 @@ static void f_strgetchar(typval_T *argvars, typval_T *rettv, FunPtr fptr)
         break;
       }
       charidx--;
-      byteidx += mb_cptr2len(str + byteidx);
+      byteidx += MB_CPTR2LEN(str + byteidx);
     }
   }
 }
@@ -17054,7 +17054,7 @@ static void f_strcharpart(typval_T *argvars, typval_T *rettv, FunPtr fptr) {
   if (!error) {
     if (nchar > 0) {
       while (nchar > 0 && nbyte < slen) {
-        nbyte += mb_cptr2len(p + nbyte);
+        nbyte += MB_CPTR2LEN(p + nbyte);
         nchar--;
       }
     } else {
@@ -17069,7 +17069,7 @@ static void f_strcharpart(typval_T *argvars, typval_T *rettv, FunPtr fptr) {
       if (off < 0) {
         len += 1;
       } else {
-        len += mb_cptr2len(p + off);
+        len += MB_CPTR2LEN(p + off);
       }
       charlen--;
     }
@@ -21381,7 +21381,7 @@ void ex_function(exarg_T *eap)
       p += 7;
       if (current_funccal == NULL) {
         emsg_funcname(N_
-                      ("E932 Closure function should not be at top level: %s"),
+                      ("E932: Closure function should not be at top level: %s"),
                       name == NULL ? (char_u *)"" : name);
         goto erret;
       }

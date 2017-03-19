@@ -564,11 +564,8 @@ static int qf_get_next_file_line(qfstate_T *state)
 
   bool discard = false;
   state->linelen = STRLEN(IObuff);
-  if (state->linelen == IOSIZE - 1 && !(IObuff[state->linelen - 1] == '\n'
-#ifdef USE_CRNL
-                                        || IObuff[state->linelen - 1] == '\r'
-#endif
-                                        )) {  // NOLINT(whitespace/parens)
+  if (state->linelen == IOSIZE - 1
+      && !(IObuff[state->linelen - 1] == '\n')) {
     // The current line exceeds IObuff, continue reading using growbuf
     // until EOL or LINE_MAXLEN bytes is read.
     if (state->growbuf == NULL) {
@@ -587,11 +584,7 @@ static int qf_get_next_file_line(qfstate_T *state)
       }
       state->linelen = STRLEN(state->growbuf + growbuflen);
       growbuflen += state->linelen;
-      if (state->growbuf[growbuflen - 1] == '\n'
-#ifdef USE_CRNL
-          || state->growbuf[growbuflen - 1] == '\r'
-#endif
-          ) {
+      if (state->growbuf[growbuflen - 1] == '\n') {
         break;
       }
       if (state->growbufsiz == LINE_MAXLEN) {
@@ -609,11 +602,7 @@ static int qf_get_next_file_line(qfstate_T *state)
       // discard everything until EOL or EOF is reached.
       if (fgets((char *)IObuff, IOSIZE, state->fd) == NULL
           || STRLEN(IObuff) < IOSIZE - 1
-          || IObuff[IOSIZE - 1] == '\n'
-#ifdef USE_CRNL
-          || IObuff[IOSIZE - 1] == '\r'
-#endif
-          ) {
+          || IObuff[IOSIZE - 1] == '\n') {
         break;
       }
     }
@@ -655,12 +644,12 @@ static int qf_get_nextline(qfstate_T *state)
 
   if (state->linelen > 0 && state->linebuf[state->linelen - 1] == '\n') {
     state->linebuf[state->linelen - 1] = NUL;
-  }
 #ifdef USE_CRNL
-  if (state->linelen > 0 && state->linebuf[state->linelen - 1] == '\r') {
-    state->linebuf[state->linelen - 1] = NUL;
-  }
+    if (state->linelen > 1 && state->linebuf[state->linelen - 2] == '\r') {
+      state->linebuf[state->linelen - 2] = NUL;
+    }
 #endif
+  }
 
   remove_bom(state->linebuf);
 
@@ -4214,11 +4203,15 @@ static int qf_add_entries(qf_info_T *qi, list_T *list, char_u *title,
   return retval;
 }
 
-static int qf_set_properties(qf_info_T *qi, dict_T *what)
+static int qf_set_properties(qf_info_T *qi, dict_T *what, int action)
 {
   dictitem_T *di;
   int retval = FAIL;
+  int newlist = false;
 
+  if (action == ' ' || qi->qf_curlist == qi->qf_listcount) {
+    newlist = true;
+  }
   int qf_idx = qi->qf_curlist;  // default is the current list
   if ((di = dict_find(what, (char_u *)"nr", -1)) != NULL) {
     // Use the specified quickfix/location list
@@ -4230,6 +4223,12 @@ static int qf_set_properties(qf_info_T *qi, dict_T *what)
     } else {
       return FAIL;
     }
+    newlist = false;  // use the specified list
+  }
+
+  if (newlist) {
+    qf_new_list(qi, NULL);
+    qf_idx = qi->qf_curlist;
   }
 
   if ((di = dict_find(what, (char_u *)"title", -1)) != NULL) {
@@ -4260,7 +4259,7 @@ int set_errorlist(win_T *wp, list_T *list, int action, char_u *title,
   }
 
   if (what != NULL) {
-    retval = qf_set_properties(qi, what);
+    retval = qf_set_properties(qi, what, action);
   } else {
     retval = qf_add_entries(qi, list, title, action);
   }

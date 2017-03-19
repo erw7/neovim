@@ -50,6 +50,7 @@
 #include "nvim/screen.h"
 #include "nvim/search.h"
 #include "nvim/spell.h"
+#include "nvim/spellfile.h"
 #include "nvim/strings.h"
 #include "nvim/syntax.h"
 #include "nvim/tag.h"
@@ -5850,18 +5851,20 @@ static void ex_quit_all(exarg_T *eap)
  */
 static void ex_close(exarg_T *eap)
 {
-  win_T *win;
+  win_T *win = NULL;
   int winnr = 0;
-  if (cmdwin_type != 0)
+  if (cmdwin_type != 0) {
     cmdwin_result = Ctrl_C;
-  else if (!text_locked() && !curbuf_locked()) {
-    if (eap->addr_count == 0)
+  } else if (!text_locked() && !curbuf_locked()) {
+    if (eap->addr_count == 0) {
       ex_win_close(eap->forceit, curwin, NULL);
-    else {
-      for (win = firstwin; win != NULL; win = win->w_next) {
+    } else {
+      FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
         winnr++;
-        if (winnr == eap->line2)
+        if (winnr == eap->line2) {
+          win = wp;
           break;
+        }
       }
       if (win == NULL)
         win = lastwin;
@@ -6073,12 +6076,14 @@ static void ex_hide(exarg_T *eap)
         win_close(curwin, FALSE); /* don't free buffer */
       else {
         int winnr = 0;
-        win_T *win;
+        win_T *win = NULL;
 
-        for (win = firstwin; win != NULL; win = win->w_next) {
+        FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
           winnr++;
-          if (winnr == eap->line2)
+          if (winnr == eap->line2) {
+            win = wp;
             break;
+          }
         }
         if (win == NULL)
           win = lastwin;
@@ -6845,7 +6850,8 @@ static void ex_syncbind(exarg_T *eap)
   /*
    * Set all scrollbind windows to the same topline.
    */
-  for (curwin = firstwin; curwin; curwin = curwin->w_next) {
+  FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
+    curwin = wp;
     if (curwin->w_p_scb) {
       curbuf = curwin->w_buffer;
       y = topline - curwin->w_topline;
@@ -9621,26 +9627,38 @@ static void ex_folddo(exarg_T *eap)
 
 static void ex_terminal(exarg_T *eap)
 {
-  char *name = (char *)p_sh;  // Default to 'shell' if {cmd} is not given.
-  bool mustfree = false;
-  char *lquote = "['";
-  char *rquote = "']";
+  char ex_cmd[1024];
 
-  if (*eap->arg != NUL) {
-    name = (char *)vim_strsave_escaped(eap->arg, (char_u *)"\"\\");
-    mustfree = true;
-    lquote = rquote = "\"";
-  }
-
-  char ex_cmd[512];
-  snprintf(ex_cmd, sizeof(ex_cmd),
-           ":enew%s | call termopen(%s%s%s) | startinsert",
-           eap->forceit==TRUE ? "!" : "", lquote, name, rquote);
-  do_cmdline_cmd(ex_cmd);
-
-  if (mustfree) {
+  if (*eap->arg != NUL) {  // Run {cmd} in 'shell'.
+    char *name = (char *)vim_strsave_escaped(eap->arg, (char_u *)"\"\\");
+    snprintf(ex_cmd, sizeof(ex_cmd),
+             ":enew%s | call termopen(\"%s\") | startinsert",
+             eap->forceit ? "!" : "", name);
     xfree(name);
+  } else {  // No {cmd}: run the job with tokenized 'shell'.
+    if (*p_sh == NUL) {
+      EMSG(_(e_shellempty));
+      return;
+    }
+
+    char **argv = shell_build_argv(NULL, NULL);
+    char **p = argv;
+    char tempstring[512];
+    char shell_argv[512] = { 0 };
+
+    while (*p != NULL) {
+      snprintf(tempstring, sizeof(tempstring), ",\"%s\"", *p);
+      xstrlcat(shell_argv, tempstring, sizeof(shell_argv));
+      p++;
+    }
+    shell_free_argv(argv);
+
+    snprintf(ex_cmd, sizeof(ex_cmd),
+             ":enew%s | call termopen([%s]) | startinsert",
+             eap->forceit ? "!" : "", shell_argv + 1);
   }
+
+  do_cmdline_cmd(ex_cmd);
 }
 
 /// Checks if `cmd` is "previewable" (i.e. supported by 'inccommand').

@@ -25,8 +25,9 @@
 
 // for ":version", ":intro", and "nvim --version"
 #ifndef NVIM_VERSION_MEDIUM
-#define NVIM_VERSION_MEDIUM STR(NVIM_VERSION_MAJOR) "." STR(NVIM_VERSION_MINOR)\
-  "." STR(NVIM_VERSION_PATCH) NVIM_VERSION_PRERELEASE
+#define NVIM_VERSION_MEDIUM "v" STR(NVIM_VERSION_MAJOR)\
+  "." STR(NVIM_VERSION_MINOR) "." STR(NVIM_VERSION_PATCH)\
+  NVIM_VERSION_PRERELEASE
 #endif
 #define NVIM_VERSION_LONG "NVIM " NVIM_VERSION_MEDIUM
 
@@ -148,7 +149,7 @@ static int included_patches[] = {
   2295,
   2294,
   // 2293,
-  // 2292,
+  2292,
   // 2291,
   // 2290 NA
   // 2289 NA
@@ -176,7 +177,7 @@ static int included_patches[] = {
   // 2267 NA
   // 2266,
   2265,
-  // 2264,
+  2264,
   // 2263,
   // 2262 NA
   // 2261 NA
@@ -191,7 +192,7 @@ static int included_patches[] = {
   // 2252 NA
   2251,
   // 2250,
-  // 2249,
+  2249,
   // 2248,
   // 2247 NA
   // 2246,
@@ -217,8 +218,8 @@ static int included_patches[] = {
   2226,
   2225,
   // 2224,
-  // 2223,
-  // 2222,
+  2223,
+  2222,
   // 2221,
   2220,
   2219,
@@ -289,14 +290,14 @@ static int included_patches[] = {
   // 2154 NA
   // 2153 NA
   // 2152,
-  // 2151,
+  2151,
   // 2150 NA
   2149,
   2148,
   2147,
   2146,
   // 2145 NA
-  // 2144,
+  2144,
   2143,
   2142,
   2141,
@@ -305,7 +306,7 @@ static int included_patches[] = {
   // 2138 NA
   2137,
   2136,
-  // 2135,
+  2135,
   2134,
   // 2133 NA
   // 2132 NA
@@ -327,9 +328,9 @@ static int included_patches[] = {
   // 2116 NA
   // 2115 NA
   // 2114 NA
-  // 2113,
+  2113,
   2112,
-  // 2111,
+  // 2111 NA
   2110,
   2109,
   // 2108 NA
@@ -339,7 +340,7 @@ static int included_patches[] = {
   // 2104,
   2103,
   // 2102 NA
-  // 2101,
+  2101,
   2100,
   2099,
   2098,
@@ -357,7 +358,7 @@ static int included_patches[] = {
   2086,
   2085,
   2084,
-  // 2083,
+  // 2083 NA
   2082,
   2081,
   // 2080 NA
@@ -371,7 +372,7 @@ static int included_patches[] = {
   2072,
   2071,
   // 2070 NA
-  // 2069,
+  2069,
   2068,
   2067,
   2066,
@@ -382,7 +383,7 @@ static int included_patches[] = {
   2061,
   // 2060 NA
   // 2059 NA
-  // 2058,
+  // 2058 NA
   // 2057 NA
   // 2056 NA
   // 2055 NA
