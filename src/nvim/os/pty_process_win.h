@@ -10,6 +10,7 @@
 #include "nvim/vim.h"
 #include "nvim/types.h"
 #include "nvim/os/os.h"
+#include "nvim/lib/queue.h"
 
 typedef struct pty_process {
   Process process;
@@ -21,10 +22,10 @@ typedef struct pty_process {
   uv_timer_t wait_eof_timer;
 } PtyProcess;
 
-typedef struct arg_node {
+typedef struct arg_S {
   char *arg;
-  struct arg_node *next;
-} ArgNode;
+  QUEUE node;
+} arg_T;
 
 static inline PtyProcess pty_process_init(Loop *loop, void *data)
 {

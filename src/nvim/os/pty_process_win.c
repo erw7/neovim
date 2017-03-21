@@ -195,35 +195,32 @@ static void pty_process_finish2(PtyProcess *ptyproc)
 static int build_cmdline(char **argv, wchar_t **cmdline)
   FUNC_ATTR_NONNULL_ALL
 {
-  ArgNode *head = NULL, *current = NULL;
   char *args = NULL;
   size_t args_len = 0, argc = 0;
   int ret;
+  QUEUE q;
+  QUEUE_INIT(&q);
 
   while (*argv) {
-    if (current == NULL) {
-      head = xmalloc(sizeof(ArgNode));
-      current = head;
-    } else {
-      current->next = xmalloc(sizeof(ArgNode));
-      current = current->next;
-    }
-    current->next = NULL;
-    current->arg = (char *)xmalloc(strlen(*argv) * 2 + 3);
-    quote_cmd_arg(*argv, current->arg);
-    args_len += strlen(current->arg);
+    arg_T *arg = xmalloc(sizeof(arg_T));
+    arg->arg = (char *)xmalloc(strlen(*argv) * 2 + 3);
+    quote_cmd_arg(*argv, arg->arg);
+    args_len += strlen(arg->arg);
+    QUEUE_INIT(&arg->node);
+    QUEUE_INSERT_TAIL(&q, &arg->node);
     ++argc;
     ++argv;
   }
   args = xmalloc(args_len + argc);
   *args = NUL;
   while (1) {
-    current = head;
-    strcat(args, current->arg);
-    head = current->next;
-    xfree(current->arg);
-    xfree(current);
-    if (head == NULL) {
+    QUEUE *head = QUEUE_HEAD(&q);
+    QUEUE_REMOVE(head);
+    arg_T *arg = QUEUE_DATA(head, arg_T, node);
+    strcat(args, arg->arg);
+    xfree(arg->arg);
+    xfree(arg);
+    if (QUEUE_EMPTY(&q)) {
       break;
     } else {
       strcat(args, " ");
