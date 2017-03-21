@@ -207,7 +207,7 @@ static int build_cmdline(char **argv, wchar_t **cmdline)
   while (*argv) {
     arg_T *arg = xmalloc(sizeof(arg_T));
     arg->arg = (char *)xmalloc(strlen(*argv) * 2 + 3);
-    quote_cmd_arg(*argv, arg->arg);
+    quote_cmd_arg(arg->arg, *argv);
     args_len += strlen(arg->arg);
     QUEUE_INIT(&arg->node);
     QUEUE_INSERT_TAIL(&q, &arg->node);
@@ -237,7 +237,7 @@ static int build_cmdline(char **argv, wchar_t **cmdline)
 /*
  * Emulate quote_cmd_arg of libuv and quotes command line arguments
  */
-static void quote_cmd_arg(const char *source, char *target)
+static void quote_cmd_arg(char *target, const char *source)
   FUNC_ATTR_NONNULL_ALL
 {
   size_t len = strlen(source);
