@@ -5,11 +5,7 @@
 
 #include <winpty.h>
 
-#include "nvim/ascii.h"
-#include "nvim/event/libuv_process.h"
-#include "nvim/vim.h"
-#include "nvim/types.h"
-#include "nvim/os/os.h"
+#include "nvim/event/process.h"
 #include "nvim/lib/queue.h"
 
 typedef struct pty_process {

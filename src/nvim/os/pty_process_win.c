@@ -2,7 +2,10 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+#include "nvim/vim.h"
+#include "nvim/ascii.h"
 #include "nvim/memory.h"
+#include "nvim/mbyte.h"  // for utf8_to_utf16, utf16_to_utf8
 #include "nvim/os/pty_process_win.h"
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
