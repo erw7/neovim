@@ -4196,7 +4196,7 @@ static int eval7(
   // string and free a string that isn't there.
   rettv->v_type = VAR_UNKNOWN;
 
-  // Skip '!' and '-' characters.  They are handled later.
+  // Skip '!', '-' and '+' characters.  They are handled later.
   start_leader = *arg;
   while (**arg == '!' || **arg == '-' || **arg == '+') {
     *arg = skipwhite(*arg + 1);
@@ -4860,7 +4860,10 @@ static int get_string_tv(char_u **arg, typval_T *rettv, int evaluate)
 
   }
   *name = NUL;
-  *arg = p + 1;
+  if (*p != NUL) {  // just in case
+    p++;
+  }
+  *arg = p;
 
   return OK;
 }
@@ -10593,8 +10596,7 @@ static void f_getchar(typval_T *argvars, typval_T *rettv, FunPtr fptr)
   varnumber_T n;
   int error = FALSE;
 
-  ++no_mapping;
-  ++allow_keys;
+  no_mapping++;
   for (;; ) {
     // Position the cursor.  Needed after a message that ends in a space,
     // or if event processing caused a redraw.
@@ -10627,8 +10629,7 @@ static void f_getchar(typval_T *argvars, typval_T *rettv, FunPtr fptr)
       continue;
     break;
   }
-  --no_mapping;
-  --allow_keys;
+  no_mapping--;
 
   vimvars[VV_MOUSE_WIN].vv_nr = 0;
   vimvars[VV_MOUSE_WINID].vv_nr = 0;
@@ -13801,8 +13802,9 @@ static void max_min(typval_T *argvars, typval_T *rettv, int domax)
         }
       }
     }
-  } else
-    EMSG(_(e_listdictarg));
+  } else {
+    EMSG2(_(e_listdictarg), domax ? "max()" : "min()");
+  }
   rettv->vval.v_number = error ? 0 : n;
 }
 
@@ -23628,6 +23630,7 @@ void ex_oldfiles(exarg_T *eap)
       msg_outnum(++nr);
       MSG_PUTS(": ");
       msg_outtrans(get_tv_string(&li->li_tv));
+      msg_clr_eos();
       msg_putchar('\n');
       ui_flush();                  /* output one line at a time */
       os_breakcheck();

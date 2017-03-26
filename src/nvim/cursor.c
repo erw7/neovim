@@ -294,6 +294,26 @@ linenr_T get_cursor_rel_lnum(win_T *wp, linenr_T lnum)
   return (lnum < cursor) ? -retval : retval;
 }
 
+// Make sure "pos.lnum" and "pos.col" are valid in "buf".
+// This allows for the col to be on the NUL byte.
+void check_pos(buf_T *buf, pos_T *pos)
+{
+  char_u *line;
+  colnr_T len;
+
+  if (pos->lnum > buf->b_ml.ml_line_count) {
+     pos->lnum = buf->b_ml.ml_line_count;
+  }
+
+  if (pos->col > 0) {
+     line = ml_get_buf(buf, pos->lnum, false);
+     len = (colnr_T)STRLEN(line);
+     if (pos->col > len) {
+         pos->col = len;
+     }
+  }
+}
+
 /*
  * Make sure curwin->w_cursor.lnum is valid.
  */
@@ -318,9 +338,8 @@ void check_cursor_col(void)
   check_cursor_col_win(curwin);
 }
 
-/*
- * Make sure win->w_cursor.col is valid.
- */
+/// Make sure win->w_cursor.col is valid. Special handling of insert-mode.
+/// @see mb_check_adjust_col
 void check_cursor_col_win(win_T *win)
 {
   colnr_T len;

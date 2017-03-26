@@ -1160,7 +1160,13 @@ void getvcol(win_T *wp, pos_T *pos, colnr_T *start, colnr_T *cursor,
     // continue until the NUL
     posptr = NULL;
   } else {
+    // Special check for an empty line, which can happen on exit, when
+    // ml_get_buf() always returns an empty string.
+    if (*ptr == NUL) {
+      pos->col = 0;
+    }
     posptr = ptr + pos->col;
+    posptr -= utf_head_off(line, posptr);
   }
 
   // This function is used very often, do some speed optimizations.

@@ -642,8 +642,7 @@ static void normal_get_additional_char(NormalState *s)
   bool langmap_active = false;  // using :lmap mappings
   int lang;                     // getting a text character
 
-  ++no_mapping;
-  ++allow_keys;               // no mapping for nchar, but allow key codes
+  no_mapping++;
   // Don't generate a CursorHold event here, most commands can't handle
   // it, e.g., nv_replace(), nv_csearch().
   did_cursorhold = true;
@@ -681,8 +680,7 @@ static void normal_get_additional_char(NormalState *s)
     }
     if (lang && curbuf->b_p_iminsert == B_IMODE_LMAP) {
       // Allow mappings defined with ":lmap".
-      --no_mapping;
-      --allow_keys;
+      no_mapping--;
       if (repl) {
         State = LREPLACE;
       } else {
@@ -695,8 +693,7 @@ static void normal_get_additional_char(NormalState *s)
 
     if (langmap_active) {
       // Undo the decrement done above
-      ++no_mapping;
-      ++allow_keys;
+      no_mapping++;
       State = NORMAL_BUSY;
     }
     State = NORMAL_BUSY;
@@ -781,8 +778,7 @@ static void normal_get_additional_char(NormalState *s)
     }
     no_mapping++;
   }
-  --no_mapping;
-  --allow_keys;
+  no_mapping--;
 }
 
 static void normal_invert_horizontal(NormalState *s)
@@ -832,8 +828,7 @@ static bool normal_get_command_count(NormalState *s)
     }
 
     if (s->ctrl_w) {
-      ++no_mapping;
-      ++allow_keys;                   // no mapping for nchar, but keys
+      no_mapping++;
     }
 
     ++no_zero_mapping;                // don't map zero here
@@ -841,8 +836,7 @@ static bool normal_get_command_count(NormalState *s)
     LANGMAP_ADJUST(s->c, true);
     --no_zero_mapping;
     if (s->ctrl_w) {
-      --no_mapping;
-      --allow_keys;
+      no_mapping--;
     }
     s->need_flushbuf |= add_to_showcmd(s->c);
   }
@@ -852,12 +846,10 @@ static bool normal_get_command_count(NormalState *s)
     s->ctrl_w = true;
     s->ca.opcount = s->ca.count0;           // remember first count
     s->ca.count0 = 0;
-    ++no_mapping;
-    ++allow_keys;                     // no mapping for nchar, but keys
+    no_mapping++;
     s->c = plain_vgetc();                // get next character
     LANGMAP_ADJUST(s->c, true);
-    --no_mapping;
-    --allow_keys;
+    no_mapping--;
     s->need_flushbuf |= add_to_showcmd(s->c);
     return true;
   }
@@ -925,9 +917,7 @@ normal_end:
   checkpcmark();                // check if we moved since setting pcmark
   xfree(s->ca.searchbuf);
 
-  if (has_mbyte) {
-    mb_adjust_cursor();
-  }
+  mb_check_adjust_col(curwin);  // #6203
 
   if (curwin->w_p_scb && s->toplevel) {
     validate_cursor();          // may need to update w_leftcol
@@ -1596,6 +1586,8 @@ void do_pending_operator(cmdarg_T *cap, int old_col, bool gui_yank)
       oap->start = curwin->w_cursor;
     }
 
+    // Just in case lines were deleted that make the position invalid.
+    check_pos(curwin->w_buffer, &oap->end);
     oap->line_count = oap->end.lnum - oap->start.lnum + 1;
 
     /* Set "virtual_op" before resetting VIsual_active. */
@@ -1899,12 +1891,13 @@ void do_pending_operator(cmdarg_T *cap, int old_col, bool gui_yank)
       break;
 
     case OP_FORMAT:
-      if (*curbuf->b_p_fex != NUL)
-        op_formatexpr(oap);             /* use expression */
-      else if (*p_fp != NUL)
-        op_colon(oap);                  /* use external command */
-      else
-        op_format(oap, false);          /* use internal function */
+      if (*curbuf->b_p_fex != NUL) {
+        op_formatexpr(oap);             // use expression
+      } else if (*p_fp != NUL || *curbuf->b_p_fp != NUL) {
+        op_colon(oap);                  // use external command
+      } else {
+        op_format(oap, false);          // use internal function
+      }
       break;
 
     case OP_FORMAT2:
@@ -1912,7 +1905,10 @@ void do_pending_operator(cmdarg_T *cap, int old_col, bool gui_yank)
       break;
 
     case OP_FUNCTION:
-      op_function(oap);                 /* call 'operatorfunc' */
+      // Restore linebreak, so that when the user edits it looks as
+      // before.
+      curwin->w_p_lbr = lbr_saved;
+      op_function(oap);                 // call 'operatorfunc'
       break;
 
     case OP_INSERT:
@@ -2059,10 +2055,13 @@ static void op_colon(oparg_T *oap)
     stuffReadbuff(get_equalprg());
     stuffReadbuff((char_u *)"\n");
   } else if (oap->op_type == OP_FORMAT) {
-    if (*p_fp == NUL)
-      stuffReadbuff((char_u *)"fmt");
-    else
+    if (*curbuf->b_p_fp != NUL) {
+      stuffReadbuff(curbuf->b_p_fp);
+    } else if (*p_fp != NUL) {
       stuffReadbuff(p_fp);
+    } else {
+      stuffReadbuff((char_u *)"fmt");
+    }
     stuffReadbuff((char_u *)"\n']");
   }
 
@@ -4036,12 +4035,10 @@ static void nv_zet(cmdarg_T *cap)
       return;
     n = nchar - '0';
     for (;; ) {
-      ++no_mapping;
-      ++allow_keys;         /* no mapping for nchar, but allow key codes */
+      no_mapping++;
       nchar = plain_vgetc();
       LANGMAP_ADJUST(nchar, true);
-      --no_mapping;
-      --allow_keys;
+      no_mapping--;
       (void)add_to_showcmd(nchar);
       if (nchar == K_DEL || nchar == K_KDEL)
         n /= 10;
@@ -4369,13 +4366,11 @@ dozet:
     break;
 
 
-  case 'u':     /* "zug" and "zuw": undo "zg" and "zw" */
-    ++no_mapping;
-    ++allow_keys;               /* no mapping for nchar, but allow key codes */
+  case 'u':     // "zug" and "zuw": undo "zg" and "zw"
+    no_mapping++;
     nchar = plain_vgetc();
     LANGMAP_ADJUST(nchar, true);
-    --no_mapping;
-    --allow_keys;
+    no_mapping--;
     (void)add_to_showcmd(nchar);
     if (vim_strchr((char_u *)"gGwW", nchar) == NULL) {
       clearopbeep(cap->oap);
@@ -4757,13 +4752,16 @@ static void nv_ident(cmdarg_T *cap)
     }
   }
 
-  /*
-   * Now grab the chars in the identifier
-   */
-  if (cmdchar == 'K' && !kp_ex) {
-    /* Escape the argument properly for a shell command */
+  // Now grab the chars in the identifier
+  if (cmdchar == 'K') {
     ptr = vim_strnsave(ptr, n);
-    p = vim_strsave_shellescape(ptr, true, true);
+    if (kp_ex) {
+      // Escape the argument properly for an Ex command
+      p = vim_strsave_fnameescape(ptr, false);
+    } else {
+      // Escape the argument properly for a shell command
+      p = vim_strsave_shellescape(ptr, true, true);
+    }
     xfree(ptr);
     char *newbuf = xrealloc(buf, STRLEN(buf) + STRLEN(p) + 1);
     buf = newbuf;

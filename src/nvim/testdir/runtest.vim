@@ -68,10 +68,12 @@ let $HOME = '/does/not/exist'
 " Prepare for calling garbagecollect_for_testing().
 let v:testing = 1
 
-" Align with vim defaults.
+" Align Nvim defaults to Vim.
 set directory^=.
-set nohidden
 set backspace=
+set nohidden smarttab noautoindent noautoread complete-=i noruler noshowcmd
+" Prevent Nvim log from writing to stderr.
+let $NVIM_LOG_FILE='Xnvim.log'
 
 function RunTheTest(test)
   echo 'Executing ' . a:test
@@ -95,8 +97,17 @@ function RunTheTest(test)
   endif
 
   " Close any extra windows and make the current one not modified.
-  while winnr('$') > 1
+  while 1
+    let wincount = winnr('$')
+    if wincount == 1
+      break
+    endif
     bwipe!
+    if wincount == winnr('$')
+      " Did not manage to close a window.
+      only!
+      break
+    endif
   endwhile
   set nomodified
 endfunc
