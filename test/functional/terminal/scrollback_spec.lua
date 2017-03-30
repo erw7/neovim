@@ -437,7 +437,7 @@ describe("'scrollback' option", function()
       nvim('command', "let $PROMPT='$$'")
       screen = thelpers.screen_setup(nil, "['"..shell .."', '/k']", 30)
     else
-      screen = thelpers.screen_setup(nil, "['"..shell.."']", 30)
+      screen = thelpers.screen_setup(nil, "['sh']", 30)
     end
 
     curbufmeths.set_option('scrollback', 200)
