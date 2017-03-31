@@ -73,11 +73,11 @@ static char *features[] = {
 };
 
 // clang-format off
-static int included_patches[] = {
-  // 2367,
+static const int included_patches[] = {
+  // 2367,NA
   // 2366 NA
   // 2365 NA
-  // 2364,
+  // 2364,NA
   // 2363 NA
   2362,
   // 2361 NA
@@ -98,7 +98,7 @@ static int included_patches[] = {
   2346,
   // 2345 NA
   // 2344 NA
-  // 2343,
+  2343,
   // 2342 NA
   2341,
   // 2340 NA
@@ -165,14 +165,14 @@ static int included_patches[] = {
   2279,
   // 2278 NA
   2277,
-  // 2276,
+  2276,
   2275,
   2274,
   2273,
   2272,
   // 2271 NA
   // 2270 NA
-  // 2269,
+  2269,
   // 2268,
   // 2267 NA
   2266,
@@ -2461,10 +2461,10 @@ static char *(extra_patches[]) = {
 /// @param version Version string like "1.3.42"
 ///
 /// @return true if Nvim is at or above the version.
-bool has_nvim_version(char *version_str)
-  FUNC_ATTR_NONNULL_ALL
+bool has_nvim_version(const char *const version_str)
+  FUNC_ATTR_PURE FUNC_ATTR_WARN_UNUSED_RESULT FUNC_ATTR_NONNULL_ALL
 {
-  char *p   = version_str;
+  const char *p = version_str;
   int major = 0;
   int minor = 0;
   int patch = 0;
@@ -2473,7 +2473,7 @@ bool has_nvim_version(char *version_str)
     return false;
   }
   major = atoi(p);
-  p     = strchr(p, '.');  // Find the next dot.
+  p = strchr(p, '.');  // Find the next dot.
 
   if (p) {
     p++;  // Advance past the dot.
@@ -2481,7 +2481,7 @@ bool has_nvim_version(char *version_str)
       return false;
     }
     minor = atoi(p);
-    p     = strchr(p, '.');
+    p = strchr(p, '.');
     if (p) {
       p++;
       if (!ascii_isdigit(*p)) {
