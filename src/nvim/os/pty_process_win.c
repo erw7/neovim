@@ -54,16 +54,19 @@ int pty_process_spawn(PtyProcess *ptyproc)
   winpty_config_set_initial_size(cfg, ptyproc->width, ptyproc->height);
   winpty_object = winpty_open(cfg, &err);
   if (winpty_object == NULL) {
+    write_elog("Failed, winpty_open.", &status, &err);
     goto cleanup;
   }
 
   status = utf16_to_utf8(winpty_conin_name(winpty_object), &in_name);
   if (status != 0) {
+    write_elog("Failed to convert utf16 to utf8.", &status, &err);
     goto cleanup;
   }
 
   status = utf16_to_utf8(winpty_conout_name(winpty_object), &out_name);
   if (status != 0) {
+    write_elog("Failed to convert utf16 to utf8.", &status, &err);
     goto cleanup;
   }
 
@@ -88,6 +91,7 @@ int pty_process_spawn(PtyProcess *ptyproc)
   if (proc->cwd != NULL) {
     status = utf8_to_utf16(proc->cwd, &cwd);
     if (status != 0) {
+      write_elog("Failed to convert utf8 to utf16.", &status, &err);
       goto cleanup;
     }
   }
@@ -105,6 +109,7 @@ int pty_process_spawn(PtyProcess *ptyproc)
       NULL,  // Optional environment variables
       &err);
   if (spawncfg == NULL) {
+    write_elog("Faied winpty_spawn_config_new.", &status, &err);
     goto cleanup;
   }
 
@@ -114,6 +119,7 @@ int pty_process_spawn(PtyProcess *ptyproc)
                     NULL,  // Optional thread handle
                     NULL,  // Optional create process error
                     &err)) {
+    write_elog("Failed winpty_spawn.", &status, &err);
     goto cleanup;
   }
 
@@ -274,6 +280,7 @@ static int build_cmd_line(char **argv, wchar_t **cmd_line)
 
   int result = utf8_to_utf16(utf8_cmd_line, cmd_line);
   if (result != 0) {
+    write_elog("Failed to convert utf8 to utf16.", &result, NULL);
   }
   xfree(utf8_cmd_line);
   return result;

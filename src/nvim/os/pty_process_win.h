@@ -37,6 +37,16 @@ static inline PtyProcess pty_process_init(Loop *loop, void *data)
   return rv;
 }
 
+static inline void write_elog(const char *emsg, int *status,
+                              winpty_error_ptr_t *err)
+{
+  if (*status == 0 && err != NULL && *err != NULL) {
+    // Case of winpty error.
+    *status = (int)winpty_error_code(*err);
+  }
+  ELOG("%s error code: %d", *status);
+}
+
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "os/pty_process_win.h.generated.h"
 #endif
