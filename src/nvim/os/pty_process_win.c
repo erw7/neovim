@@ -25,8 +25,7 @@ static void CALLBACK pty_process_finish1(void *context, BOOLEAN unused)
   uv_timer_start(&ptyproc->wait_eof_timer, wait_eof_timer_cb, 200, 200);
 }
 
-/// @returns zero on sucess, or error code of winpty or MultiByteToWideChar
-/// function converted to libuv error.
+/// @returns zero on sucess, or UV_EAI_FAIL on failure.
 int pty_process_spawn(PtyProcess *ptyproc)
   FUNC_ATTR_NONNULL_ALL
 {
@@ -158,7 +157,7 @@ cleanup:
   xfree(out_req);
   xfree(cmd_line);
   xfree(cwd);
-  return convert_to_uv_error(status);
+  return status ? UV_EAI_FAIL : 0;
 }
 
 void pty_process_resize(PtyProcess *ptyproc, uint16_t width,
@@ -362,49 +361,5 @@ static void quote_cmd_arg(char *dist, size_t dist_remaining, const char *src)
     *dist = tmp;
     start++;
     dist--;
-  }
-}
-
-/// Convert winpty or MultiByteToWideChar function error code to libuv error
-/// code.
-///
-/// @param  error  Error code returned winpty_error_code or MultiByteToWideChar
-///                function.
-///
-/// @return  Converted libuv error code.
-///
-static int convert_to_uv_error(int error)
-{
-  // XXX: Make it a more appropriate error code.
-  switch (error) {
-    case 0:
-      return 0;
-
-    case WINPTY_ERROR_OUT_OF_MEMORY:
-      return UV_EAI_MEMORY;
-
-    case WINPTY_ERROR_SPAWN_CREATE_PROCESS_FAILED:
-    case WINPTY_ERROR_AGENT_EXE_MISSING:
-    case WINPTY_ERROR_AGENT_DIED:
-    case WINPTY_ERROR_AGENT_CREATION_FAILED:
-      return UV_EAI_FAIL;
-
-    case WINPTY_ERROR_LOST_CONNECTION:
-      return UV_ECONNRESET;
-
-    case WINPTY_ERROR_AGENT_TIMEOUT:
-      return UV_ETIMEDOUT;
-
-    case ERROR_INSUFFICIENT_BUFFER:
-      return UV_ENOBUFS;
-
-    case ERROR_INVALID_FLAGS:
-      return UV_EAI_BADFLAGS;
-
-    case WINPTY_ERROR_UNSPECIFIED:
-    case ERROR_INVALID_PARAMETER:
-    case ERROR_NO_UNICODE_TRANSLATION:
-    default:
-      return UV_UNKNOWN;
   }
 }
