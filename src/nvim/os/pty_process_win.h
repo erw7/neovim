@@ -53,13 +53,13 @@ static inline void write_elog(const char *emsg, int status)
 /// @param[out]  status  Location where saved error code.
 /// @param  err  winpty error object.
 ///
-static inline void write_winpty_elog(const char *emsg;int *status,
+static inline void write_winpty_elog(const char *emsg, int *status,
                                      winpty_error_ptr_t *err)
 {
   assert(err != NULL && *err != NULL);
 
   *status = (int)winpty_error_code(*err);
-  write_elog(emsg, status);
+  write_elog(emsg, *status);
 }
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
