@@ -332,7 +332,7 @@ static void quote_cmd_arg(char *dist, size_t dist_remaining, const char *src)
   //   input : hello\\"world
   //   output: "hello\\\\\"world"
   //   input : hello world\
-  //   output: "hello world\"
+  //   output: "hello world\\"
 
   assert(dist_remaining--);
   *(dist++) = NUL;
