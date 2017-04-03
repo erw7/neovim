@@ -23,7 +23,7 @@ static void CALLBACK pty_process_finish1(void *context, BOOLEAN unused)
   uv_timer_start(&ptyproc->wait_eof_timer, wait_eof_timer_cb, 200, 200);
 }
 
-/// @returns zero on sucess, or UV_EAI_FAIL on failure.
+/// @returns zero on success, or UV_EAI_FAIL on failure.
 int pty_process_spawn(PtyProcess *ptyproc)
   FUNC_ATTR_NONNULL_ALL
 {
