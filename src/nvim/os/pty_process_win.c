@@ -1,8 +1,6 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <winerror.h>
-#include <winpty_constants.h>
 
 #include "nvim/vim.h"
 #include "nvim/ascii.h"
