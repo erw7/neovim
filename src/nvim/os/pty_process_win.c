@@ -59,13 +59,13 @@ int pty_process_spawn(PtyProcess *ptyproc)
 
   status = utf16_to_utf8(winpty_conin_name(winpty_object), &in_name);
   if (status != 0) {
-    write_elog("Failed to convert utf16 to utf8.", status);
+    write_elog("Failed to convert in_name from utf16 to utf8.", status);
     goto cleanup;
   }
 
   status = utf16_to_utf8(winpty_conout_name(winpty_object), &out_name);
   if (status != 0) {
-    write_elog("Failed to convert utf16 to utf8.", status);
+    write_elog("Failed to convert out_name from utf16 to utf8.", status);
     goto cleanup;
   }
 
