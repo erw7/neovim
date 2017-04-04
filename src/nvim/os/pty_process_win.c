@@ -205,8 +205,7 @@ static void pty_process_connect_cb(uv_connect_t *req, int status)
 static void wait_eof_timer_cb(uv_timer_t *wait_eof_timer)
   FUNC_ATTR_NONNULL_ALL
 {
-  PtyProcess *ptyproc =
-    (PtyProcess *)((uv_handle_t *)wait_eof_timer->data);
+  PtyProcess *ptyproc = wait_eof_timer->data;
   Process *proc = (Process *)ptyproc;
 
   if (!proc->out || !uv_is_readable(proc->out->uvstream)) {
