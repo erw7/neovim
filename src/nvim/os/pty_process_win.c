@@ -45,6 +45,7 @@ int pty_process_spawn(PtyProcess *ptyproc)
 
   cfg = winpty_config_new(WINPTY_FLAG_ALLOW_CURPROC_DESKTOP_CREATION, &err);
   if (cfg == NULL) {
+    write_winpty_elog("Failed, winpty_config_new.", &status, &err);
     goto cleanup;
   }
 
