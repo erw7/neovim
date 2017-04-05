@@ -6,8 +6,14 @@
 uv_tty_t tty;
 
 #ifdef _WIN32
+typedef struct screen_size {
+  int width;
+  int height;
+} ScreenSize;
+
 #define CTRL_Q 0x11
 
+ScreenSize screen_rect;
 #include <windows.h>
 bool owns_tty(void)
 {
@@ -78,14 +84,20 @@ static void read_cb(uv_stream_t *stream, ssize_t cnt, const uv_buf_t *buf)
   }
 
   int *interrupted = stream->data;
+#ifdef _WIN32
   bool prsz = false;
+  int width;
+  int height;
+#endif
 
   for (int i = 0; i < cnt; i++) {
     if (buf->base[i] == 3) {
       (*interrupted)++;
+#ifdef _WIN32
     } else if (buf->base[i] == CTRL_Q) {
       prsz = true;
     }
+#endif
   }
 
   uv_loop_t write_loop;
@@ -93,15 +105,23 @@ static void read_cb(uv_stream_t *stream, ssize_t cnt, const uv_buf_t *buf)
   uv_tty_t out;
   uv_tty_init(&write_loop, &out, fileno(stdout), 0);
 
+#ifdef _WIN32
   if (prsz) {
     uv_tty_get_winsize(&out, &width, &height);
-    fprintf(stderr, "rows: %d, cols: %d\n", height, width);
+    if (screen_rect.width != width || screen_rect.height != height) {
+      screen_rect.width = width;
+      screen_rect.height = height;
+      fprintf(stderr, "rows: %d, cols: %d\n", height, width);
+    }
   } else {
+#endif
     uv_write_t req;
     uv_buf_t b = {.base = buf->base, .len = (size_t)cnt};
     uv_write(&req, (uv_stream_t *)&out, &b, 1, NULL);
     uv_run(&write_loop, UV_RUN_DEFAULT);
+#ifdef _WIN32
   }
+#endif
 
   uv_close((uv_handle_t *)&out, NULL);
   uv_run(&write_loop, UV_RUN_DEFAULT);
@@ -163,6 +183,14 @@ int main(int argc, char **argv)
   uv_tty_init(uv_default_loop(), &tty, fileno(stderr), 1);
 #else
   uv_tty_init(uv_default_loop(), &tty, fileno(stdin), 1);
+  uv_tty_t out;
+  uv_tty_init(uv_default_loop(), &out, fileno(stdout), 0);
+  int width;
+  int height;
+  uv_tty_get_winsize(&out, &width, &height);
+  screen_rect.width = width;
+  screen_rect.height = height;
+  uv_close((uv_handle_t *)&out, NULL);
 #endif
   uv_tty_set_mode(&tty, UV_TTY_MODE_RAW);
   tty.data = &interrupted;
