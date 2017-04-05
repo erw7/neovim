@@ -6,6 +6,8 @@
 uv_tty_t tty;
 
 #ifdef _WIN32
+#define CTRL_Q 0x11
+
 #include <windows.h>
 bool owns_tty(void)
 {
@@ -77,12 +79,11 @@ static void read_cb(uv_stream_t *stream, ssize_t cnt, const uv_buf_t *buf)
 
   int *interrupted = stream->data;
   bool prsz = false;
-  int width, height;
 
   for (int i = 0; i < cnt; i++) {
     if (buf->base[i] == 3) {
       (*interrupted)++;
-    } else if (buf->base[i] == 17) {
+    } else if (buf->base[i] == CTRL_Q) {
       prsz = true;
     }
   }
