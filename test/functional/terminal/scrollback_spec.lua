@@ -3,7 +3,7 @@ local helpers = require('test.functional.helpers')(after_each)
 local thelpers = require('test.functional.terminal.helpers')
 local clear, eq, curbuf = helpers.clear, helpers.eq, helpers.curbuf
 local feed, nvim_dir, execute = helpers.feed, helpers.nvim_dir, helpers.execute
-local iswin, print_screen_size = helpers.iswin, thelpers.print_screen_size
+local iswin, wait_screen_resize = helpers.iswin, thelpers.wait_screen_resize
 local eval = helpers.eval
 local command = helpers.command
 local wait = helpers.wait
@@ -142,7 +142,7 @@ describe('terminal scrollback', function()
       local function will_hide_top_line()
         screen:try_resize(screen._width, screen._height - 1)
         if iswin() then
-          print_screen_size()
+          wait_screen_resize()
         end
         screen:expect([[
           line2                         |
@@ -161,7 +161,7 @@ describe('terminal scrollback', function()
           will_hide_top_line()
           screen:try_resize(screen._width, screen._height - 2)
           if iswin() then
-            print_screen_size()
+            wait_screen_resize()
           end
         end)
 
@@ -190,7 +190,7 @@ describe('terminal scrollback', function()
       before_each(function()
         screen:try_resize(screen._width, screen._height - 2)
         if iswin() then
-          print_screen_size()
+          wait_screen_resize()
         end
       end)
 
@@ -256,7 +256,7 @@ describe('terminal scrollback', function()
       ]])
       screen:try_resize(screen._width, screen._height - 3)
       if iswin() then
-        print_screen_size()
+        wait_screen_resize()
       end
       screen:expect([[
         line4                         |
@@ -271,7 +271,7 @@ describe('terminal scrollback', function()
       local function pop_then_push()
         screen:try_resize(screen._width, screen._height + 1)
         if iswin() then
-          print_screen_size()
+          wait_screen_resize()
         end
         screen:expect([[
           line4                         |
@@ -290,7 +290,7 @@ describe('terminal scrollback', function()
           eq(8, curbuf('line_count'))
           screen:try_resize(screen._width, screen._height + 3)
           if iswin() then
-            print_screen_size()
+            wait_screen_resize()
           end
         end)
 

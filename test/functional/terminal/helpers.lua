@@ -2,6 +2,7 @@ local helpers = require('test.functional.helpers')(nil)
 local Screen = require('test.functional.ui.screen')
 local nvim_dir = helpers.nvim_dir
 local execute, nvim = helpers.execute, helpers.nvim
+local eval, retry, wait = helpers.eval, helpers.retry, helpers.wait
 
 local function feed_data(data)
   nvim('set_var', 'term_data', data)
@@ -30,9 +31,15 @@ local function clear_attrs() feed_termcode('[0;10m') end
 -- mouse
 local function enable_mouse() feed_termcode('[?1002h') end
 local function disable_mouse() feed_termcode('[?1002l') end
-local function print_screen_size()
-  helpers.sleep(1000)
-  nvim('command', 'call jobsend(b:terminal_job_id, "\\<C-q>")')
+local function wait_screen_resize()
+  local snap = eval('join(getbufline("%", 0, line("$")))')
+  retry(nil, nil, function()
+    nvim('command', 'call jobsend(b:terminal_job_id, "\\<C-q>")')
+    if snap == eval('join(getbufline("%", 0, line("$")))') then
+      error('Screen resize does not occure.')
+    end
+    print("bad")
+  end)
 end
 
 local default_command = '["'..nvim_dir..'/tty-test"]'
@@ -115,6 +122,6 @@ return {
   clear_attrs = clear_attrs,
   enable_mouse = enable_mouse,
   disable_mouse = disable_mouse,
-  print_screen_size = print_screen_size,
+  wait_screen_resize = wait_screen_resize,
   screen_setup = screen_setup
 }
