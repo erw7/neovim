@@ -213,9 +213,6 @@ describe('terminal scrollback', function()
         before_each(function()
           will_delete_last_two_lines()
           screen:try_resize(screen._width, screen._height - 1)
-          if iswin() then
-            print_screen_size()
-          end
         end)
 
         it('will delete the last line and hide the first', function()
@@ -330,9 +327,6 @@ describe('terminal scrollback', function()
             pop3_then_push1()
             feed('Gi')
             screen:try_resize(screen._width, screen._height + 4)
-            if iswin() then
-              print_screen_size()
-            end
           end)
 
           it('will show all lines and leave a blank one at the end', function()
