@@ -1,20 +1,32 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <uv.h>
 
-uv_tty_t tty;
+#include <uv.h>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 #ifdef _WIN32
 typedef struct screen_size {
   int width;
   int height;
 } ScreenSize;
+#endif
 
-#define CTRL_Q 0x11
-
+uv_tty_t tty;
+#ifdef _WIN32
 ScreenSize screen_rect;
-#include <windows.h>
+#endif
+
+#define is_terminal(stream) (uv_guess_handle(fileno(stream)) == UV_TTY)
+#define BUF_SIZE 0xfff
+#define CTRL_C 0x03
+#ifdef _WIN32
+#define CTRL_Q 0x11
+#endif
+
+#ifdef _WIN32
 bool owns_tty(void)
 {
   // XXX: We need to make proper detect owns tty
