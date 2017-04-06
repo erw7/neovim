@@ -32,10 +32,8 @@ bool owns_tty(void)
 }
 #endif
 
-#define is_terminal(stream) (uv_guess_handle(fileno(stream)) == UV_TTY)
-#define BUF_SIZE 0xfff
-
-static void walk_cb(uv_handle_t *handle, void *arg) {
+static void walk_cb(uv_handle_t *handle, void *arg)
+{
   if (!uv_is_closing(handle)) {
     uv_close(handle, NULL);
   }
@@ -44,7 +42,7 @@ static void walk_cb(uv_handle_t *handle, void *arg) {
 #ifndef WIN32
 static void sig_handler(int signum)
 {
-  switch(signum) {
+  switch (signum) {
   case SIGWINCH: {
     int width, height;
     uv_tty_get_winsize(&tty, &width, &height);
@@ -116,7 +114,7 @@ static void read_cb(uv_stream_t *stream, ssize_t cnt, const uv_buf_t *buf)
   } else {
 #endif
     uv_write_t req;
-    uv_buf_t b = {.base = buf->base, .len = (size_t)cnt};
+    uv_buf_t b = { .base = buf->base, .len = (size_t)cnt };
     uv_write(&req, (uv_stream_t *)&out, &b, 1, NULL);
     uv_run(&write_loop, UV_RUN_DEFAULT);
 #ifdef _WIN32
@@ -167,7 +165,7 @@ int main(int argc, char **argv)
 
   if (argc > 1) {
     int count = atoi(argv[1]);
-    for (int i = 0; i < count; ++i) {
+    for (int i = 0; i < count; i++) {
       printf("line%d\n", i);
     }
     fflush(stdout);
