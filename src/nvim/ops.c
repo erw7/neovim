@@ -802,7 +802,6 @@ static bool is_append_register(int regname)
 /// Returns a copy of contents in register `name`
 /// for use in do_put. Should be freed by caller.
 yankreg_T *copy_register(int name)
-  FUNC_ATTR_MALLOC
   FUNC_ATTR_NONNULL_RET
 {
   yankreg_T *reg = get_yank_register(name, YREG_PASTE);
@@ -1956,16 +1955,18 @@ int swapchar(int op_type, pos_T *pos)
   if (enc_dbcs != 0 && c >= 0x100)      /* No lower/uppercase letter */
     return FALSE;
   nc = c;
-  if (vim_islower(c)) {
-    if (op_type == OP_ROT13)
+  if (mb_islower(c)) {
+    if (op_type == OP_ROT13) {
       nc = ROT13(c, 'a');
-    else if (op_type != OP_LOWER)
-      nc = vim_toupper(c);
-  } else if (vim_isupper(c)) {
-    if (op_type == OP_ROT13)
+    } else if (op_type != OP_LOWER) {
+      nc = mb_toupper(c);
+    }
+  } else if (mb_isupper(c)) {
+    if (op_type == OP_ROT13) {
       nc = ROT13(c, 'A');
-    else if (op_type != OP_UPPER)
-      nc = vim_tolower(c);
+    } else if (op_type != OP_UPPER) {
+      nc = mb_tolower(c);
+    }
   }
   if (nc != c) {
     if (enc_utf8 && (c >= 0x80 || nc >= 0x80)) {
@@ -3327,10 +3328,11 @@ void ex_display(exarg_T *eap)
 
     get_clipboard(name, &yb, true);
 
-    if (name == vim_tolower(redir_reg)
-        || (redir_reg == '"' && yb == y_previous))
-      continue;             /* do not list register being written to, the
-                             * pointer can be freed */
+    if (name == mb_tolower(redir_reg)
+        || (redir_reg == '"' && yb == y_previous)) {
+      continue;  // do not list register being written to, the
+                 // pointer can be freed
+    }
 
     if (yb->y_array != NULL) {
       msg_putchar('\n');

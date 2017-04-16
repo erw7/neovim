@@ -573,16 +573,17 @@ void emsg_invreg(int name)
 /// Print an error message with unknown number of arguments
 bool emsgf(const char *const fmt, ...)
 {
+  static char errbuf[IOSIZE];
   if (emsg_not_now()) {
     return true;
   }
 
   va_list ap;
   va_start(ap, fmt);
-  vim_vsnprintf((char *) IObuff, IOSIZE, fmt, ap, NULL);
+  vim_vsnprintf(errbuf, sizeof(errbuf), fmt, ap, NULL);
   va_end(ap);
 
-  return emsg(IObuff);
+  return emsg((const char_u *)errbuf);
 }
 
 static void msg_emsgf_event(void **argv)
@@ -2729,8 +2730,8 @@ do_dialog (
         break;
       }
 
-      /* Make the character lowercase, as chars in "hotkeys" are. */
-      c = vim_tolower(c);
+      // Make the character lowercase, as chars in "hotkeys" are.
+      c = mb_tolower(c);
       retval = 1;
       for (i = 0; hotkeys[i]; ++i) {
         if (has_mbyte) {
@@ -2776,7 +2777,7 @@ copy_char (
 
   if (has_mbyte) {
     if (lowercase) {
-      c = vim_tolower((*mb_ptr2char)(from));
+      c = mb_tolower((*mb_ptr2char)(from));
       return (*mb_char2bytes)(c, to);
     } else {
       len = (*mb_ptr2len)(from);

@@ -8728,10 +8728,10 @@ static void f_foldtextresult(typval_T *argvars, typval_T *rettv, FunPtr fptr)
   }
   fold_count = foldedCount(curwin, lnum, &foldinfo);
   if (fold_count > 0) {
-    text = get_foldtext(curwin, lnum, lnum + fold_count - 1,
-        &foldinfo, buf);
-    if (text == buf)
+    text = get_foldtext(curwin, lnum, lnum + fold_count - 1, &foldinfo, buf);
+    if (text == buf) {
       text = vim_strsave(text);
+    }
     rettv->vval.v_string = text;
   }
 }
@@ -11008,18 +11008,19 @@ static void get_user_input(typval_T *argvars, typval_T *rettv, int inputdialog)
     cmdline_row = msg_row;
 
     const char *defstr = "";
+    char buf[NUMBUFLEN];
     if (argvars[1].v_type != VAR_UNKNOWN) {
-      char buf[NUMBUFLEN];
       defstr = tv_get_string_buf_chk(&argvars[1], buf);
       if (defstr != NULL) {
         stuffReadbuffSpec(defstr);
       }
 
       if (!inputdialog && argvars[2].v_type != VAR_UNKNOWN) {
+        char buf2[NUMBUFLEN];
         // input() with a third argument: completion
         rettv->vval.v_string = NULL;
 
-        const char *const xp_name = tv_get_string_buf_chk(&argvars[2], buf);
+        const char *const xp_name = tv_get_string_buf_chk(&argvars[2], buf2);
         if (xp_name == NULL) {
           return;
         }
@@ -13415,14 +13416,12 @@ static void f_resolve(typval_T *argvars, typval_T *rettv, FunPtr fptr)
           q = (char *)path_tail((char_u *)p);
         }
         if (q > p && !path_is_absolute_path((const char_u *)buf)) {
-          // Symlink is relative to directory of argument.
+          // Symlink is relative to directory of argument. Replace the
+          // symlink with the resolved name in the same directory.
           const size_t p_len = strlen(p);
           const size_t buf_len = strlen(buf);
-          cpy = xmalloc(p_len + buf_len + 1);
-          memcpy(cpy, p, p_len);
-          memcpy(path_tail((char_u *)cpy), buf, buf_len + 1);
-          xfree(p);
-          p = cpy;
+          p = xrealloc(p, p_len + buf_len + 1);
+          memcpy(path_tail((char_u *)p), buf, buf_len + 1);
         } else {
           xfree(p);
           p = xstrdup(buf);
@@ -16437,7 +16436,12 @@ static void f_taglist(typval_T *argvars, typval_T *rettv, FunPtr fptr)
     return;
   }
 
-  (void)get_tags(tv_list_alloc_ret(rettv), (char_u *)tag_pattern);
+  const char *fname = NULL;
+  if (argvars[1].v_type != VAR_UNKNOWN) {
+    fname = tv_get_string(&argvars[1]);
+  }
+  (void)get_tags(tv_list_alloc_ret(rettv), (char_u *)tag_pattern,
+                 (char_u *)fname);
 }
 
 /*
@@ -16787,30 +16791,9 @@ void timer_teardown(void)
  */
 static void f_tolower(typval_T *argvars, typval_T *rettv, FunPtr fptr)
 {
-  char_u *p = (char_u *)xstrdup(tv_get_string(&argvars[0]));
   rettv->v_type = VAR_STRING;
-  rettv->vval.v_string = p;
-
-  while (*p != NUL) {
-    int l;
-
-    if (enc_utf8) {
-      int c, lc;
-
-      c = utf_ptr2char(p);
-      lc = utf_tolower(c);
-      l = utf_ptr2len(p);
-      /* TODO: reallocate string when byte count changes. */
-      if (utf_char2len(lc) == l)
-        utf_char2bytes(lc, p);
-      p += l;
-    } else if (has_mbyte && (l = (*mb_ptr2len)(p)) > 1)
-      p += l;                 /* skip multi-byte character */
-    else {
-      *p = TOLOWER_LOC(*p);         /* note that tolower() can be a macro */
-      ++p;
-    }
-  }
+  rettv->vval.v_string = (char_u *)strcase_save(tv_get_string(&argvars[0]),
+                                                false);
 }
 
 /*
@@ -16819,7 +16802,8 @@ static void f_tolower(typval_T *argvars, typval_T *rettv, FunPtr fptr)
 static void f_toupper(typval_T *argvars, typval_T *rettv, FunPtr fptr)
 {
   rettv->v_type = VAR_STRING;
-  rettv->vval.v_string = (char_u *)strup_save(tv_get_string(&argvars[0]));
+  rettv->vval.v_string = (char_u *)strcase_save(tv_get_string(&argvars[0]),
+                                                true);
 }
 
 /*
@@ -17288,7 +17272,7 @@ static bool write_list(FileDescriptor *const fp, const list_T *const list,
       }
     }
   }
-  if ((error = file_fsync(fp)) != 0) {
+  if ((error = file_flush(fp)) != 0) {
     goto write_list_error;
   }
   return true;
@@ -17420,16 +17404,24 @@ static void f_writefile(typval_T *argvars, typval_T *rettv, FunPtr fptr)
 
   bool binary = false;
   bool append = false;
+  bool do_fsync = !!p_fs;
   if (argvars[2].v_type != VAR_UNKNOWN) {
     const char *const flags = tv_get_string_chk(&argvars[2]);
     if (flags == NULL) {
       return;
     }
-    if (strchr(flags, 'b')) {
-      binary = true;
-    }
-    if (strchr(flags, 'a')) {
-      append = true;
+    for (const char *p = flags; *p; p++) {
+      switch (*p) {
+        case 'b': { binary = true; break; }
+        case 'a': { append = true; break; }
+        case 's': { do_fsync = true; break; }
+        case 'S': { do_fsync = false; break; }
+        default: {
+          // Using %s, p and not %c, *p to preserve multibyte characters
+          emsgf(_("E5060: Unknown flag: %s"), p);
+          return;
+        }
+      }
     }
   }
 
@@ -17438,21 +17430,21 @@ static void f_writefile(typval_T *argvars, typval_T *rettv, FunPtr fptr)
   if (fname == NULL) {
     return;
   }
-  FileDescriptor *fp;
+  FileDescriptor fp;
   int error;
   rettv->vval.v_number = -1;
   if (*fname == NUL) {
     EMSG(_("E482: Can't open file with an empty name"));
-  } else if ((fp = file_open_new(&error, fname,
-                                 ((append ? kFileAppend : kFileTruncate)
-                                  | kFileCreate), 0666)) == NULL) {
+  } else if ((error = file_open(&fp, fname,
+                                ((append ? kFileAppend : kFileTruncate)
+                                 | kFileCreate), 0666)) != 0) {
     emsgf(_("E482: Can't open file %s for writing: %s"),
           fname, os_strerror(error));
   } else {
-    if (write_list(fp, argvars[0].vval.v_list, binary)) {
+    if (write_list(&fp, argvars[0].vval.v_list, binary)) {
       rettv->vval.v_number = 0;
     }
-    if ((error = file_free(fp)) != 0) {
+    if ((error = file_close(&fp, do_fsync)) != 0) {
       emsgf(_("E80: Error when closing file %s: %s"),
             fname, os_strerror(error));
     }
@@ -20711,13 +20703,7 @@ void func_unref(char_u *name)
       abort();
 #endif
   }
-  if (fp != NULL && --fp->uf_refcount <= 0) {
-    // Only delete it when it's not being used. Otherwise it's done
-    // when "uf_calls" becomes zero.
-    if (fp->uf_calls == 0) {
-      func_clear_free(fp, false);
-    }
-  }
+  func_ptr_unref(fp);
 }
 
 /// Unreference a Function: decrement the reference count and free it when it

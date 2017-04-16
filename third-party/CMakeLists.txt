@@ -94,8 +94,8 @@ include(ExternalProject)
 set(LIBUV_URL https://github.com/libuv/libuv/archive/v1.11.0.tar.gz)
 set(LIBUV_SHA256 6ec7eec6ecc24b1a8ffedebedb2fe9313fffb5410de89aaf784dd01080411c7a)
 
-set(MSGPACK_URL https://github.com/msgpack/msgpack-c/archive/cpp-1.0.0.tar.gz)
-set(MSGPACK_SHA256 afda64ca445203bb7092372b822bae8b2539fdcebbfc3f753f393628c2bcfe7d)
+set(MSGPACK_URL https://github.com/msgpack/msgpack-c/archive/cpp-2.1.1.tar.gz)
+set(MSGPACK_SHA256 d6bef12d959816a39c7a6972f3f16c0724e4c7ff0927eb59a35247dc8267b609)
 
 set(LUAJIT_URL https://github.com/neovim/deps/raw/master/opt/LuaJIT-2.0.4.tar.gz)
 set(LUAJIT_SHA256 620fa4eb12375021bef6e4f237cbd2dd5d49e56beb414bee052c746beef1807d)
