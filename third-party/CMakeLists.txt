@@ -87,14 +87,24 @@ endif()
 
 include(ExternalProject)
 
+if(CYGWIN)
+set(LIBUV_URL https://github.com/libuv/libuv/archive/v1.19.1.tar.gz)
+set(LIBUV_SHA256 8d96a6230af4f9f33d6ec021b599e157279a2af72ed38cf4a8c25e6d58d952ef)
+else()
 set(LIBUV_URL https://github.com/libuv/libuv/archive/v1.12.0.tar.gz)
 set(LIBUV_SHA256 41ce914a88da21d3b07a76023beca57576ca5b376c6ac440c80bc581cbca1250)
+endif()
 
 set(MSGPACK_URL https://github.com/msgpack/msgpack-c/releases/download/cpp-2.1.5/msgpack-2.1.5.tar.gz)
 set(MSGPACK_SHA256 6126375af9b204611b9d9f154929f4f747e4599e6ae8443b337915dcf2899d2b)
 
+if(CYGWIN)
+set(LUAJIT_URL https://github.com/LuaJIT/LuaJIT/archive/v2.1.0-beta3.tar.gz)
+set(LUAJIT_SHA256 409f7fe570d3c16558e594421c47bdd130238323c9d6fd6c83dedd2aaeb082a8)
+else()
 set(LUAJIT_URL https://github.com/LuaJIT/LuaJIT/archive/7dbf0b05f1228c1c719866db5e5f3d58f87f74c8.tar.gz)
 set(LUAJIT_SHA256 cbae019b5e396164eb5f0d07777b55cc03931bb944f83c61a010c053c9f5fd5b)
+endif()
 
 set(LUA_URL https://www.lua.org/ftp/lua-5.1.5.tar.gz)
 set(LUA_SHA256 2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333)

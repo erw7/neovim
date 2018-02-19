@@ -43,6 +43,15 @@ set(INSTALLCMD_UNIX ${MAKE_PRG} CFLAGS=-fPIC
                                 Q=
                                 install)
 
+if(CYGWIN)
+set(INSTALLCMD_UNIX ${INSTALLCMD_UNIX}
+  TARGET_SHLDFLAGS=-Wl,--out-implib,liblua.dll.a
+  FILE_SO=liblua.dll.a FILE_T=luajit.exe FILE_T+=cyglua51.dll
+  INSTALL_SONAME=liblua.dll.a INSTALL_SOSHORT=liblua.dll.a
+  INSTALL_TNAME= LDCONFIG=: SYMLINK=:
+  )
+endif()
+
 if(UNIX)
   BuildLuaJit(INSTALL_COMMAND ${INSTALLCMD_UNIX}
     CC=${DEPS_C_COMPILER} PREFIX=${DEPS_INSTALL_DIR})

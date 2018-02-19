@@ -457,6 +457,24 @@ if(WIN32)
   add_dependencies(nvim_runtime_deps external_blobs)
 endif()
 
+if(CYGWIN)
+  # Copy DLLs and third-party tools to bin/ and install them along with nvim
+  add_custom_target(nvim_runtime_deps ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_BINARY_DIR}/cygwin_runtime_deps/
+      ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+  install(DIRECTORY ${PROJECT_BINARY_DIR}/cygwin_runtime_deps/
+    DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+  add_custom_target(nvim_dll_deps DEPENDS nvim
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_BINARY_DIR}/cygwin_runtime_deps
+    COMMAND ${CMAKE_COMMAND}
+      "-DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}"
+      -DBINARY="${PROJECT_BINARY_DIR}/bin/nvim${CMAKE_EXECUTABLE_SUFFIX}"
+      -DDST=${PROJECT_BINARY_DIR}/cygwin_runtime_deps
+      -P ${PROJECT_SOURCE_DIR}/cmake/WindowsDllCopy.cmake)
+  add_dependencies(nvim_runtime_deps nvim_dll_deps)
+endif()
+
 add_library(
   libnvim
   STATIC

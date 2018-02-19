@@ -1,4 +1,4 @@
-if(WIN32)
+if(WIN32 OR CYGWIN)
   message(STATUS "Building jemalloc in Windows is not supported (skipping)")
   return()
 endif()

@@ -51,12 +51,18 @@ if(NOT MSVC)
   set(LUAROCKS_BUILDARGS CC=${HOSTDEPS_C_COMPILER} LD=${HOSTDEPS_C_COMPILER})
 endif()
 
+if(CYGWIN)
+  set(LUA_VERSION 2.1)
+else()
+  set(LUA_VERSION 2.0)
+endif()
+
 if(UNIX OR (MINGW AND CMAKE_CROSSCOMPILING))
 
   if(USE_BUNDLED_LUAJIT)
     list(APPEND LUAROCKS_OPTS
       --with-lua=${HOSTDEPS_INSTALL_DIR}
-      --with-lua-include=${HOSTDEPS_INSTALL_DIR}/include/luajit-2.0
+      --with-lua-include=${HOSTDEPS_INSTALL_DIR}/include/luajit-${LUA_VERSION}
       --lua-suffix=jit)
   elseif(USE_BUNDLED_LUA)
     list(APPEND LUAROCKS_OPTS
