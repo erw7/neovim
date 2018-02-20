@@ -6,6 +6,7 @@ local Paths = require('test.config.paths')
 local global_helpers = require('test.helpers')
 local assert = require('luassert')
 local say = require('say')
+local lpeg = require('lpeg')
 
 local posix = nil
 local syscall = nil
@@ -16,6 +17,8 @@ local neq = global_helpers.neq
 local map = global_helpers.map
 local eq = global_helpers.eq
 local ok = global_helpers.ok
+
+local P = lpeg.P
 
 -- C constants.
 local NULL = ffi.cast('void*', 0)
@@ -475,7 +478,12 @@ else
     wait = function(pid)
       ffi.errno(0)
       while true do
-        local r = ffi.C.waitpid(pid, nil, ffi.C.kPOSIXWaitWUNTRACED)
+        local uname = global_helpers.uname()
+        local status = nil
+        if lpeg.match(P'CYGWIN' + P'MSYS', uname) then
+          status = ffi.new("__wait_status_ptr_t", nil)
+        end
+        local r = ffi.C.waitpid(pid, status, ffi.C.kPOSIXWaitWUNTRACED)
         if r == -1 then
           local err = ffi.errno(0)
           if err == ffi.C.kPOSIXErrnoECHILD then

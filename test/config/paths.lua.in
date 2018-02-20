@@ -1,3 +1,7 @@
+local lpeg = require('lpeg')
+
+local P = lpeg.P
+
 local module = {}
 
 module.include_paths = {}
@@ -12,7 +16,8 @@ module.test_source_path = "${CMAKE_SOURCE_DIR}"
 module.test_lua_prg = "${LUA_PRG}"
 module.test_luajit_prg = ""
 if module.test_luajit_prg == '' then
-  if module.test_lua_prg:sub(-6) == 'luajit' then
+  if lpeg.match(P(string.reverse("luajit")) + P(string.reverse("luajit.exe")),
+    module.test_lua_prg:reverse()) then
     module.test_luajit_prg = module.test_lua_prg
   else
     module.test_luajit_prg = nil
