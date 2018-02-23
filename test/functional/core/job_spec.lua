@@ -572,7 +572,7 @@ describe('jobs', function()
         call rpcnotify(g:channel, 'wait', jobwait([
         \  jobstart('exit 4'),
         \  jobstart('sleep 10; exit 5'),
-        \  ], 100))
+        \  ], 200))
         ]])
         eq({'notification', 'wait', {{4, -1}}}, next_msg())
       end)
