@@ -248,7 +248,11 @@ static void terminfo_start(UI *ui)
   unibi_out_ext(ui, data->unibi_ext.enable_bracketed_paste);
 
   uv_loop_init(&data->write_loop);
+#ifdef WIN32
+  if (data->out_isatty && !msys_tty_on_handle(data->out_fd)) {
+#else
   if (data->out_isatty) {
+#endif
     uv_tty_init(&data->write_loop, &data->output_handle.tty, data->out_fd, 0);
 #ifdef WIN32
     uv_tty_set_mode(&data->output_handle.tty, UV_TTY_MODE_RAW);
@@ -1229,7 +1233,11 @@ static void update_size(UI *ui)
   }
 
   // 2 - try from a system call(ioctl/TIOCGWINSZ on unix)
+#ifdef WIN32
+  if (data->out_isatty && !msys_tty_on_handle(data->out_fd)
+#else
   if (data->out_isatty
+#endif
       && !uv_tty_get_winsize(&data->output_handle.tty, &width, &height)) {
     goto end;
   }

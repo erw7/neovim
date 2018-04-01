@@ -179,7 +179,7 @@ void input_disable_events(void)
 // https://fossies.org/linux/vim/src/iscygpty.c
 // See https://github.com/BurntSushi/ripgrep/issues/94#issuecomment-261745480
 // for an explanation on why this works
-static bool msys_tty_on_handle(int fd)
+bool msys_tty_on_handle(int fd)
 {
   const int size = sizeof(FILE_NAME_INFO) + sizeof(WCHAR) * MAX_PATH;
   WCHAR *p = NULL;
