@@ -1788,11 +1788,8 @@ static void flush_buf(UI *ui)
     data->is_invisible = data->busy;
   }
 
-  int ret = uv_write(&req, STRUCT_CAST(uv_stream_t, &data->output_handle),
+  uv_write(&req, STRUCT_CAST(uv_stream_t, &data->output_handle),
            bufs, (unsigned)(bufp - bufs), NULL);
-  if (ret < 0) {
-    fprintf(stderr, "%s\n", uv_strerror(ret));
-  }
   uv_run(&data->write_loop, UV_RUN_DEFAULT);
   data->bufpos = 0;
   data->overflow = false;
