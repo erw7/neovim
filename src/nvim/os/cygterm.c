@@ -93,7 +93,7 @@ CygTerm *cygterm_new(int fd)
     }
     cygterm->init = (void (*)(void))GetProcAddress(cygterm->hmodule, MSYS_INIT_FUNC);
   }
-  cygterm->tcgetattr = (int (*)(int, struct termios *))GetProcAddress(cygterm->hmodule, "tcsetattr");
+  cygterm->tcgetattr = (int (*)(int, struct termios *))GetProcAddress(cygterm->hmodule, "tcgetattr");
   cygterm->tcsetattr = (int (*)(int, int, const struct termios *))GetProcAddress(cygterm->hmodule, "tcsetattr");
   cygterm->ioctl = (int (*)(int, int, ...))GetProcAddress(cygterm->hmodule, "ioctl");
 
