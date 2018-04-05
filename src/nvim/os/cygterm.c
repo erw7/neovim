@@ -1,6 +1,8 @@
+#include <fcntl.h>
 #include <io.h>
 #include <stdbool.h>
 
+#include "nvim/os/os.h"
 #include "nvim/os/cygterm.h"
 #include "nvim/memory.h"
 
@@ -96,13 +98,21 @@ CygTerm *cygterm_new(int fd)
   cygterm->tcgetattr = (int (*)(int, struct termios *))GetProcAddress(cygterm->hmodule, "tcgetattr");
   cygterm->tcsetattr = (int (*)(int, int, const struct termios *))GetProcAddress(cygterm->hmodule, "tcsetattr");
   cygterm->ioctl = (int (*)(int, int, ...))GetProcAddress(cygterm->hmodule, "ioctl");
+  cygterm->open = (int (*)(const char*, int))GetProcAddress(cygterm->hmodule, "open");
+  cygterm->close = (int (*)(int))GetProcAddress(cygterm->hmodule, "close");
 
-  if (!cygterm->init || !cygterm->tcgetattr || !cygterm->tcsetattr || !cygterm->ioctl) {
+  if (!cygterm->init || !cygterm->tcgetattr || !cygterm->tcsetattr || !cygterm->ioctl || !cygterm->open || !cygterm->close) {
     goto abort;
   }
   cygterm->is_started = FALSE;
-  cygterm->fd = fd;
   cygterm->init();
+  const char* tty = os_getenv("TTY");
+  if (!tty){
+    goto abort;
+  }
+  size_t len = strlen(tty) + 1;
+  cygterm->tty = xmalloc(len);
+  strncpy(cygterm->tty, tty, len);
   cygterm_start(cygterm);
   return cygterm;
 
@@ -117,8 +127,13 @@ void cygterm_start(CygTerm *cygterm)
     return;
   }
 
+  int fd = cygterm->open(cygterm->tty, O_RDWR | CYG_O_BINARY);
+  if (fd == -1) {
+    return;
+  }
+
   struct termios termios;
-  if (cygterm->tcgetattr(cygterm->fd, &termios) == 0) {
+  if (cygterm->tcgetattr(fd, &termios) == 0) {
     cygterm->restore_termios = termios;
     cygterm->restore_termios_valid = TRUE;
 
@@ -128,10 +143,11 @@ void cygterm_start(CygTerm *cygterm)
     termios.c_cc[VTIME] = 0;
     termios.c_lflag &= ~ISIG;
 
-    cygterm->tcsetattr(cygterm->fd, TCSANOW, &termios);
+    cygterm->tcsetattr(fd, TCSANOW, &termios);
   }
 
     cygterm->is_started = TRUE;
+    cygterm->close(fd);
 }
 
 void cygterm_stop(CygTerm *cygterm) {
@@ -139,18 +155,27 @@ void cygterm_stop(CygTerm *cygterm) {
     return;
   }
 
+  int fd = cygterm->open(cygterm->tty, O_RDWR | CYG_O_BINARY);
+  if (fd == -1) {
+    return;
+  }
   if (cygterm->restore_termios_valid) {
-    cygterm->tcsetattr(cygterm->fd, TCSANOW, &cygterm->restore_termios);
+    cygterm->tcsetattr(fd, TCSANOW, &cygterm->restore_termios);
   }
 
   cygterm->is_started = FALSE;
+  cygterm->close(fd);
 }
 
 bool cygterm_get_winsize(CygTerm *cygterm, int *width, int *height) {
   struct winsize ws;
   int err;
 
-  err = cygterm->ioctl(cygterm->fd, TIOCGWINSZ, &ws);
+  int fd = cygterm->open(cygterm->tty, O_RDONLY | CYG_O_BINARY);
+  if (fd == -1) {
+    return FALSE;
+  }
+  err = cygterm->ioctl(fd, TIOCGWINSZ, &ws);
   if (err == -1) {
     return FALSE;
   }

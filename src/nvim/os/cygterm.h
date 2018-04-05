@@ -10,24 +10,26 @@ typedef enum {
 } MinttyType;
 
 /* iflag bits */
-#define INLCR   0x00040
-#define ICRNL   0x00100
-#define IXON    0x00400
+#define INLCR      0x00040
+#define ICRNL      0x00100
+#define IXON       0x00400
 
 /* lflag bits */
-#define ISIG    0x0001
-#define ICANON  0x0002
-#define ECHO    0x0004
-#define IEXTEN  0x0100
+#define ISIG       0x0001
+#define ICANON     0x0002
+#define ECHO       0x0004
+#define IEXTEN     0x0100
 
-#define VMIN            9
-#define VTIME           16
+#define VMIN       9
+#define VTIME      16
 
-#define NCCS            18
+#define NCCS       18
 
-#define TCSANOW         2
+#define TCSANOW    2
 
 #define TIOCGWINSZ (('T' << 8) | 1)
+
+#define CYG_O_BINARY   0x10000
 
 typedef unsigned char cc_t;
 typedef unsigned int  tcflag_t;
@@ -57,7 +59,9 @@ typedef struct {
   int (*tcgetattr) (int, struct termios *);
   int (*tcsetattr) (int, int, const struct termios *);
   int (*ioctl) (int, int, ...);
-  int fd;
+  int (*open) (const char*, int);
+  int (*close) (int);
+  char *tty;
   bool is_started;
   struct termios restore_termios;
   bool restore_termios_valid;
