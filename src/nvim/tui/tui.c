@@ -40,6 +40,10 @@
 #include "nvim/syntax.h"
 #include "nvim/macros.h"
 
+#ifdef WIN32
+# include "nvim/os/cygterm.h"
+#endif
+
 // Space reserved in two output buffers to make the cursor normal or invisible
 // when flushing. No existing terminal will require 32 bytes to do that.
 #define CNORM_COMMAND_MAX_SIZE 32
@@ -84,7 +88,7 @@ typedef struct {
   } output_handle;
   bool out_isatty;
 #ifdef WIN32
-  bool out_is_mintty;
+  CygTerm *cygterm;
 #endif
   SignalWatcher winch_handle, cont_handle;
   bool cont_received;
@@ -200,7 +204,9 @@ static void terminfo_start(UI *ui)
   data->unibi_ext.reset_cursor_style = -1;
   data->out_fd = 1;
   data->out_isatty = os_isatty(data->out_fd);
-  data->out_is_mintty = msys_tty_on_handle(data->out_fd);
+#ifdef WIN32
+  data->cygterm = cygterm_new(fileno(stdin));
+#endif
 
   // Set up unibilium/terminfo.
   const char *term = os_getenv("TERM");
@@ -253,7 +259,7 @@ static void terminfo_start(UI *ui)
 
   uv_loop_init(&data->write_loop);
 #ifdef WIN32
-  if (data->out_isatty && !data->out_is_mintty) {
+  if (data->out_isatty && !data->cygterm) {
 #else
   if (data->out_isatty) {
 #endif
@@ -1238,14 +1244,20 @@ static void update_size(UI *ui)
 
   // 2 - try from a system call(ioctl/TIOCGWINSZ on unix)
 #ifdef WIN32
-  if (data->out_isatty && !data->out_is_mintty
+  if (data->out_isatty && !data->cygterm
 #else
   if (data->out_isatty
 #endif
       && !uv_tty_get_winsize(&data->output_handle.tty, &width, &height)) {
     goto end;
+#ifdef WIN32
+ } else if (data->cygterm
+            && cygterm_get_winsize(data->cygterm, &width, &height)) {
+    goto end;
+ }
+#else
   }
-
+#endif
   // 3 - use $LINES/$COLUMNS if available
   const char *val;
   int advance;
@@ -1793,7 +1805,7 @@ static void flush_buf(UI *ui)
   }
 
 #ifdef WIN32
-  if (data->out_is_mintty) {
+  if (data->cygterm) {
     for (unsigned int i = 0; i < (unsigned)(bufp - bufs); i++) {
       uv_write(&req, STRUCT_CAST(uv_stream_t, &data->output_handle),
                &bufs[i], 1, NULL);

@@ -13,6 +13,10 @@
 #include "nvim/os/input.h"
 #include "nvim/event/rstream.h"
 
+#ifdef WIN32
+# include "nvim/os/cygterm.h"
+#endif
+
 #define PASTETOGGLE_KEY "<Paste>"
 #define KEY_BUFFER_SIZE 0xfff
 
@@ -47,7 +51,7 @@ void term_input_init(TermInput *input, Loop *loop)
   termkey_set_canonflags(input->tk, curflags | TERMKEY_CANON_DELBS);
   // setup input handle
 #ifdef WIN32
-  if (!msys_tty_on_handle(input->in_fd)) {
+  if (detect_mintty_type(input->in_fd) == NONE_MINTTY) {
     uv_tty_init(&loop->uv, &input->tty_in, 0, 1);
     uv_tty_set_mode(&input->tty_in, UV_TTY_MODE_RAW);
     rstream_init_stream(&input->read_stream,

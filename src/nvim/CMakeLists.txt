@@ -124,6 +124,9 @@ foreach(sfile ${NVIM_SOURCES})
   if(NOT WIN32 AND ${f} MATCHES "^(pty_process_win.c)$")
     list(APPEND to_remove ${sfile})
   endif()
+  if (NOT WIN32 AND ${f} MATCHES "^(cygterm.c)$")
+    list(APPEND, to_remove ${sfile})
+  endif()
 endforeach()
 
 list(REMOVE_ITEM NVIM_SOURCES ${to_remove})
@@ -555,6 +558,7 @@ function(get_test_target prefix sfile relative_path_var target_var)
 endfunction()
 
 set(NO_SINGLE_CHECK_HEADERS
+  os/cygterm.h
   os/win_defs.h
   os/pty_process_win.h
 )
