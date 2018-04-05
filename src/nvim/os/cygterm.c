@@ -123,10 +123,10 @@ void cygterm_start(CygTerm *cygterm)
     cygterm->restore_termios_valid = TRUE;
 
     termios.c_iflag &= ~(IXON|INLCR|ICRNL);
-    termios.c_iflag &= ~(ICANON|ECHO|IEXTEN);
+    termios.c_lflag &= ~(ICANON|ECHO|IEXTEN);
     termios.c_cc[VMIN] = 1;
     termios.c_cc[VTIME] = 0;
-    termios.c_iflag &= ~ISIG;
+    termios.c_lflag &= ~ISIG;
 
     cygterm->tcsetattr(cygterm->fd, TCSANOW, &termios);
   }
