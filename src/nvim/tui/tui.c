@@ -84,7 +84,7 @@ typedef struct {
   } output_handle;
   bool out_isatty;
 #ifdef WIN32
-  bool out_is_mintty;
+  bool out_isamintty;
 #endif
   SignalWatcher winch_handle, cont_handle;
   bool cont_received;
@@ -200,7 +200,7 @@ static void terminfo_start(UI *ui)
   data->unibi_ext.reset_cursor_style = -1;
   data->out_fd = 1;
   data->out_isatty = os_isatty(data->out_fd);
-  data->out_is_mintty = msys_tty_on_handle(data->out_fd);
+  data->out_isamintty = msys_tty_on_handle(data->out_fd);
 
   // Set up unibilium/terminfo.
   const char *term = os_getenv("TERM");
@@ -253,7 +253,7 @@ static void terminfo_start(UI *ui)
 
   uv_loop_init(&data->write_loop);
 #ifdef WIN32
-  if (data->out_isatty && !data->out_is_mintty) {
+  if (data->out_isatty && !data->out_isamintty) {
 #else
   if (data->out_isatty) {
 #endif
@@ -1237,7 +1237,7 @@ static void update_size(UI *ui)
 
   // 2 - try from a system call(ioctl/TIOCGWINSZ on unix)
 #ifdef WIN32
-  if (data->out_isatty && !data->out_is_mintty
+  if (data->out_isatty && !data->out_isamintty
 #else
   if (data->out_isatty
 #endif
@@ -1792,7 +1792,7 @@ static void flush_buf(UI *ui)
   }
 
 #ifdef WIN32
-  if (data->out_is_mintty) {
+  if (data->out_isamintty) {
     for (unsigned int i = 0; i < (unsigned)(bufp - bufs); i++) {
       uv_write(&req, STRUCT_CAST(uv_stream_t, &data->output_handle),
                &bufs[i], 1, NULL);
