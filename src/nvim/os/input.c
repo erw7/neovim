@@ -179,7 +179,7 @@ void input_disable_events(void)
 // https://fossies.org/linux/vim/src/iscygpty.c
 // See https://github.com/BurntSushi/ripgrep/issues/94#issuecomment-261745480
 // for an explanation on why this works
-static bool msys_tty_on_handle(int fd)
+static bool is_cygpty(int fd)
 {
   const int size = sizeof(FILE_NAME_INFO) + sizeof(WCHAR) * MAX_PATH;
   WCHAR *p = NULL;
@@ -230,6 +230,17 @@ static bool msys_tty_on_handle(int fd)
   xfree(nameinfo);
   return p != NULL;
 }
+
+bool is_cygpty_used(void)
+{
+  for (int fd = 0; fd < 3; fd++) {
+    if (is_cygpty(fd)) {
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
 #endif
 
 /// Test whether a file descriptor refers to a terminal.
@@ -238,14 +249,7 @@ static bool msys_tty_on_handle(int fd)
 /// @return `true` if file descriptor refers to a terminal.
 bool os_isatty(int fd)
 {
-    if (uv_guess_handle(fd) == UV_TTY) {
-        return true;
-    }
-#ifdef WIN32
-    return msys_tty_on_handle(fd);
-#else
-    return false;
-#endif
+    return uv_guess_handle(fd) == UV_TTY;
 }
 
 size_t input_enqueue(String keys)

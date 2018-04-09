@@ -1411,6 +1411,13 @@ static void check_tty(mparm_T *parmp)
   } else if (parmp->want_full_screen && (!parmp->err_isatty
         && (!parmp->output_isatty || !parmp->input_isatty))) {
 
+#ifdef WIN32
+    if (is_cygpty_used()) {
+      mch_errmsg(_("Vim: Error: This version of vim does not run in Cygwin terminal, Please use winpty\n"));
+      exit(1);
+    }
+#endif
+
     if (!parmp->output_isatty) {
       mch_errmsg(_("Vim: Warning: Output is not to a terminal\n"));
     }
