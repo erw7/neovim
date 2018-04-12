@@ -408,6 +408,15 @@ if(JEMALLOC_FOUND)
   list(APPEND NVIM_EXEC_LINK_LIBRARIES ${JEMALLOC_LIBRARIES})
 endif()
 
+if(WIN32)
+  include(${PROJECT_SOURCE_DIR}/third-party/cmake/TargetArch.cmake)
+  if("${TARGET_ARCH}" STREQUAL "X86_64")
+    list(APPEND NVIM_EXEC_LINK_LIBRARIES -Wl,-entry -Wl,cygloadCRTStartup)
+  elseif("${TARGET_ARCH}" STREQUAL "X86")
+    list(APPEND NVIM_EXEC_LINK_LIBRARIES -Wl,-entry -Wl,_cygloadCRTStartup@0)
+  endif()
+endif()
+
 add_executable(nvim ${NVIM_GENERATED_FOR_SOURCES} ${NVIM_GENERATED_FOR_HEADERS}
   ${NVIM_GENERATED_SOURCES} ${NVIM_SOURCES} ${NVIM_HEADERS})
 target_link_libraries(nvim ${NVIM_EXEC_LINK_LIBRARIES})

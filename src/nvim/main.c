@@ -138,6 +138,46 @@ static const char *err_extra_cmd =
   N_("Too many \"+command\", \"-c command\" or \"--cmd command\" arguments");
 
 
+#ifdef WIN32
+int mainCRTStartup(void);
+
+int __stdcall cygloadCRTStartup(void)
+{
+  struct padding _padding;
+  int result;
+# ifndef __x86_64__
+  char *stackbase;
+# endif
+  char *_stackbase;
+
+  _padding.end = _padding.padding + sizeof(_padding.padding);
+# ifdef __x86_64__
+  _stackbase = NtCurrentTeb()->Tib.StackBase;
+# else
+#  ifdef __GNUC__
+  __asm__ (
+      "movl %%fs:4, %0"
+      :"=r"(stackbase)
+      );
+#  else
+  __asm {
+    mov eax, fs:[4];
+    mov stackbase, eax;
+  }
+  _stackbase = stackbase;
+#  endif // __GNUC__
+# endif // __x86_64__
+
+  if ((_stackbase - _padding.end) != 0) {
+    _padding.delta = (_stackbase - _padding.end);
+    memcpy(_padding.block, _padding.end, _padding.delta);
+  }
+  result = mainCRTStartup();
+  memcpy(_padding.end, _padding.block, _padding.delta);
+  return result;
+}
+#endif // WIN32
+
 void event_init(void)
 {
   loop_init(&main_loop, NULL);
