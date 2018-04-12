@@ -140,6 +140,7 @@ CygTerm *cygterm_new(int fd)
   size_t len = strlen(tty) + 1;
   cygterm->tty = xmalloc(len);
   strncpy(cygterm->tty, tty, len);
+  cygterm->fd = -1;
   cygterm_start(cygterm);
   return cygterm;
 
@@ -154,13 +155,16 @@ void cygterm_start(CygTerm *cygterm)
     return;
   }
 
-  int fd = cygterm->open(cygterm->tty, O_RDWR | CYG_O_BINARY);
-  if (fd == -1) {
-    return;
+  if (cygterm->fd == -1) {
+    int fd = cygterm->open(cygterm->tty, O_RDWR | CYG_O_BINARY);
+    if (fd == -1) {
+      return;
+    }
+    cygterm->fd = fd;
   }
 
   struct termios termios;
-  if (cygterm->tcgetattr(fd, &termios) == 0) {
+  if (cygterm->tcgetattr(cygterm->fd, &termios) == 0) {
     cygterm->restore_termios = termios;
     cygterm->restore_termios_valid = TRUE;
 
@@ -170,11 +174,10 @@ void cygterm_start(CygTerm *cygterm)
     termios.c_cc[VTIME] = 0;
     termios.c_lflag &= ~ISIG;
 
-    cygterm->tcsetattr(fd, TCSANOW, &termios);
+    cygterm->tcsetattr(cygterm->fd, TCSANOW, &termios);
   }
 
     cygterm->is_started = TRUE;
-    cygterm->close(fd);
 }
 
 void cygterm_stop(CygTerm *cygterm) {
@@ -182,29 +185,35 @@ void cygterm_stop(CygTerm *cygterm) {
     return;
   }
 
-  int fd = cygterm->open(cygterm->tty, O_RDWR | CYG_O_BINARY);
-  if (fd == -1) {
-    return;
+  if (cygterm->fd == -1){
+    int fd = cygterm->open(cygterm->tty, O_RDWR | CYG_O_BINARY);
+    if (fd == -1) {
+      return;
+    }
+    cygterm->fd = fd;
   }
   if (cygterm->restore_termios_valid) {
-    cygterm->tcsetattr(fd, TCSANOW, &cygterm->restore_termios);
+    cygterm->tcsetattr(cygterm->fd, TCSANOW, &cygterm->restore_termios);
   }
 
   cygterm->is_started = FALSE;
-  cygterm->close(fd);
+  cygterm->close(cygterm->fd);
 }
 
 bool cygterm_get_winsize(CygTerm *cygterm, int *width, int *height) {
   struct winsize ws;
   int err, err_no;
 
-  int fd = cygterm->open(cygterm->tty, O_RDONLY | CYG_O_BINARY);
-  if (fd == -1) {
-    return FALSE;
+  if (cygterm->fd == -1){
+    int fd = cygterm->open(cygterm->tty, O_RDWR | CYG_O_BINARY);
+    if (fd == -1) {
+      return FALSE;
+    }
+    cygterm->fd = fd;
   }
 
   do {
-    err = cygterm->ioctl(fd, TIOCGWINSZ, &ws);
+    err = cygterm->ioctl(cygterm->fd, TIOCGWINSZ, &ws);
     int *e = cygterm->__errno();
     if (e == NULL) {
       err_no = -1;

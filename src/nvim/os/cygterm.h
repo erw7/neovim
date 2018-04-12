@@ -219,6 +219,7 @@ typedef struct {
   int (*open) (const char*, int);
   int (*close) (int);
   int* (*__errno) (void);
+  int fd;
   char *tty;
   bool is_started;
   struct termios restore_termios;
