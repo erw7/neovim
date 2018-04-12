@@ -100,8 +100,9 @@ CygTerm *cygterm_new(int fd)
   cygterm->ioctl = (int (*)(int, int, ...))GetProcAddress(cygterm->hmodule, "ioctl");
   cygterm->open = (int (*)(const char*, int))GetProcAddress(cygterm->hmodule, "open");
   cygterm->close = (int (*)(int))GetProcAddress(cygterm->hmodule, "close");
+  cygterm->__errno = (int* (*)(void))GetProcAddress(cygterm->hmodule, "__errno");
 
-  if (!cygterm->init || !cygterm->tcgetattr || !cygterm->tcsetattr || !cygterm->ioctl || !cygterm->open || !cygterm->close) {
+  if (!cygterm->init || !cygterm->tcgetattr || !cygterm->tcsetattr || !cygterm->ioctl || !cygterm->open || !cygterm->close || !cygterm->__errno) {
     goto abort;
   }
   cygterm->is_started = FALSE;
@@ -169,13 +170,23 @@ void cygterm_stop(CygTerm *cygterm) {
 
 bool cygterm_get_winsize(CygTerm *cygterm, int *width, int *height) {
   struct winsize ws;
-  int err;
+  int err, err_no;
 
   int fd = cygterm->open(cygterm->tty, O_RDONLY | CYG_O_BINARY);
   if (fd == -1) {
     return FALSE;
   }
-  err = cygterm->ioctl(fd, TIOCGWINSZ, &ws);
+
+  do {
+    err = cygterm->ioctl(fd, TIOCGWINSZ, &ws);
+    int *e = cygterm->__errno();
+    if (e == NULL) {
+      err_no = -1;
+    } else {
+      err_no = *e;
+    }
+  } while(err == -1 && err_no == EINTR);
+
   if (err == -1) {
     return FALSE;
   }

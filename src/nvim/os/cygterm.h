@@ -147,6 +147,7 @@ typedef enum {
   MINTTY_MSYS
 } MinttyType;
 
+#define EINTR      4
 /* iflag bits */
 #define INLCR      0x00040
 #define ICRNL      0x00100
@@ -215,6 +216,7 @@ typedef struct {
   int (*ioctl) (int, int, ...);
   int (*open) (const char*, int);
   int (*close) (int);
+  int* (*__errno) (void);
   char *tty;
   bool is_started;
   struct termios restore_termios;
