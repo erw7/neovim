@@ -141,6 +141,10 @@ static const char *err_extra_cmd =
 #ifdef WIN32
 int mainCRTStartup(void);
 
+// This code is based on the following article of the cygwin mailing list.
+// https://cygwin.com/ml/cygwin/2011-02/msg00446.html
+// See https://cygwin.com/faq/faq.html#faq.programming.msvs-mingw
+// for the need for this code.
 int __stdcall cygloadCRTStartup(void)
 {
   struct padding _padding;

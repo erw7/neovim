@@ -1806,6 +1806,7 @@ static void flush_buf(UI *ui)
 
 #ifdef WIN32
   if (data->cygterm) {
+    // Workaround of issue that writing to pipe fails if nbumf >= 2
     for (unsigned int i = 0; i < (unsigned)(bufp - bufs); i++) {
       uv_write(&req, STRUCT_CAST(uv_stream_t, &data->output_handle),
                &bufs[i], 1, NULL);

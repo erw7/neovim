@@ -6,6 +6,8 @@
 #ifdef __x86_64__
 #include <subauth.h>
 
+// THese struct came from ntdll.h of Cygwin
+//
 /* Checked on 64 bit. */
 typedef struct _PEB_LDR_DATA
 {
@@ -147,6 +149,7 @@ typedef enum {
   MINTTY_MSYS
 } MinttyType;
 
+// These definition came from header file of Cygwin
 #define EINTR      4
 /* iflag bits */
 #define INLCR      0x00040
