@@ -22,28 +22,28 @@ MinttyType detect_mintty_type(int fd)
 
   const HANDLE h = (HANDLE)_get_osfhandle(fd);
   if (h == INVALID_HANDLE_VALUE) {
-    return FALSE;
+    return false;
   }
   // Cygwin/msys's pty is a pipe.
   if (GetFileType(h) != FILE_TYPE_PIPE) {
-    return FALSE;
+    return false;
   }
   FILE_NAME_INFO *nameinfo = xmalloc(size);
   if (nameinfo == NULL) {
-    return FALSE;
+    return false;
   }
   // Check the name of the pipe:
   // '\{cygwin,msys}-XXXXXXXXXXXXXXXX-ptyN-{from,to}-master'
-  MinttyType result = NONE_MINTTY;
+  MinttyType result = kNoneMintty;
   if (GetFileInformationByHandleEx(h, FileNameInfo, nameinfo, size)) {
     nameinfo->FileName[nameinfo->FileNameLength / sizeof(WCHAR)] = L'\0';
     p = nameinfo->FileName;
     if (wcsstr(p, L"\\cygwin-") == p) {
       p += 8;
-      result = MINTTY_CYGWIN;
+      result = kMinttyCygwin;
     } else if (wcsstr(p, L"\\msys-") == p) {
       p += 6;
-      result = MINTTY_MSYS;
+      result = kMinttyMsys;
     } else {
       p = NULL;
     }
@@ -67,7 +67,7 @@ MinttyType detect_mintty_type(int fd)
     }
   }
   xfree(nameinfo);
-  return p != NULL ? result : NONE_MINTTY;
+  return p != NULL ? result : kNoneMintty;
 }
 
 HMODULE get_cygwin_dll_handle(void)
@@ -82,11 +82,11 @@ HMODULE get_cygwin_dll_handle(void)
     const char *init_func = NULL;
     for (int i = 0; i < 3; i++) {
       mintty = detect_mintty_type(i);
-      if (mintty == MINTTY_CYGWIN) {
+      if (mintty == kMinttyCygwin) {
         dll = CYGWDLL;
         init_func = CYG_INIT_FUNC;
         break;
-      } else if (mintty == MINTTY_MSYS) {
+      } else if (mintty == kMinttyMsys) {
         dll = MSYSDLL;
         init_func = MSYS_INIT_FUNC;
         break;
@@ -107,12 +107,11 @@ HMODULE get_cygwin_dll_handle(void)
   }
   return hmodule;
 }
-}
 
 CygTerm *cygterm_new(int fd)
 {
   MinttyType mintty = detect_mintty_type(fd);
-  if (mintty == NONE_MINTTY) {
+  if (mintty == kNoneMintty) {
     return NULL;
   }
 
@@ -122,24 +121,31 @@ CygTerm *cygterm_new(int fd)
   }
 
   cygterm->hmodule = get_cygwin_dll_handle();
-  cygterm->tcgetattr = (int (*)(int, struct termios *))GetProcAddress(cygterm->hmodule, "tcgetattr");
-  cygterm->tcsetattr = (int (*)(int, int, const struct termios *))GetProcAddress(cygterm->hmodule, "tcsetattr");
-  cygterm->ioctl = (int (*)(int, int, ...))GetProcAddress(cygterm->hmodule, "ioctl");
-  cygterm->open = (int (*)(const char*, int))GetProcAddress(cygterm->hmodule, "open");
-  cygterm->close = (int (*)(int))GetProcAddress(cygterm->hmodule, "close");
-  cygterm->__errno = (int* (*)(void))GetProcAddress(cygterm->hmodule, "__errno");
+  cygterm->tcgetattr =
+    (tcgetattr_fn)GetProcAddress(cygterm->hmodule, "tcgetattr");
+  cygterm->tcsetattr =
+    (tcsetattr_fn)GetProcAddress(cygterm->hmodule, "tcsetattr");
+  cygterm->ioctl = (ioctl_fn)GetProcAddress(cygterm->hmodule, "ioctl");
+  cygterm->open = (open_fn)GetProcAddress(cygterm->hmodule, "open");
+  cygterm->close = (close_fn)GetProcAddress(cygterm->hmodule, "close");
+  cygterm->__errno = (errno_fn)GetProcAddress(cygterm->hmodule, "__errno");
 
-  if (!cygterm->tcgetattr || !cygterm->tcsetattr || !cygterm->ioctl || !cygterm->open || !cygterm->close || !cygterm->__errno) {
+  if (!cygterm->tcgetattr
+      || !cygterm->tcsetattr
+      || !cygterm->ioctl
+      || !cygterm->open
+      || !cygterm->close
+      || !cygterm->__errno) {
     goto abort;
   }
-  cygterm->is_started = FALSE;
-  const char* tty = os_getenv("TTY");
-  if (!tty){
+  cygterm->is_started = false;
+  const char *tty = os_getenv("TTY");
+  if (!tty) {
     goto abort;
   }
   size_t len = strlen(tty) + 1;
   cygterm->tty = xmalloc(len);
-  strncpy(cygterm->tty, tty, len);
+  snprintf(cygterm->tty, len, "%s", tty);
   cygterm->fd = -1;
   cygterm_start(cygterm);
   return cygterm;
@@ -166,7 +172,7 @@ void cygterm_start(CygTerm *cygterm)
   struct termios termios;
   if (cygterm->tcgetattr(cygterm->fd, &termios) == 0) {
     cygterm->restore_termios = termios;
-    cygterm->restore_termios_valid = TRUE;
+    cygterm->restore_termios_valid = true;
 
     termios.c_iflag &= ~(IXON|INLCR|ICRNL);
     termios.c_lflag &= ~(ICANON|ECHO|IEXTEN);
@@ -177,15 +183,16 @@ void cygterm_start(CygTerm *cygterm)
     cygterm->tcsetattr(cygterm->fd, TCSANOW, &termios);
   }
 
-    cygterm->is_started = TRUE;
+  cygterm->is_started = true;
 }
 
-void cygterm_stop(CygTerm *cygterm) {
+void cygterm_stop(CygTerm *cygterm)
+{
   if (!cygterm->is_started) {
     return;
   }
 
-  if (cygterm->fd == -1){
+  if (cygterm->fd == -1) {
     int fd = cygterm->open(cygterm->tty, O_RDWR | CYG_O_BINARY);
     if (fd == -1) {
       return;
@@ -196,18 +203,19 @@ void cygterm_stop(CygTerm *cygterm) {
     cygterm->tcsetattr(cygterm->fd, TCSANOW, &cygterm->restore_termios);
   }
 
-  cygterm->is_started = FALSE;
+  cygterm->is_started = false;
   cygterm->close(cygterm->fd);
 }
 
-bool cygterm_get_winsize(CygTerm *cygterm, int *width, int *height) {
+bool cygterm_get_winsize(CygTerm *cygterm, int *width, int *height)
+{
   struct winsize ws;
   int err, err_no;
 
-  if (cygterm->fd == -1){
+  if (cygterm->fd == -1) {
     int fd = cygterm->open(cygterm->tty, O_RDWR | CYG_O_BINARY);
     if (fd == -1) {
-      return FALSE;
+      return false;
     }
     cygterm->fd = fd;
   }
@@ -220,14 +228,14 @@ bool cygterm_get_winsize(CygTerm *cygterm, int *width, int *height) {
     } else {
       err_no = *e;
     }
-  } while(err == -1 && err_no == EINTR);
+  } while (err == -1 && err_no == EINTR);
 
   if (err == -1) {
-    return FALSE;
+    return false;
   }
 
   *width = ws.ws_col;
   *height = ws.ws_row;
 
-  return TRUE;
+  return true;
 }

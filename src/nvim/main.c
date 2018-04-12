@@ -171,8 +171,8 @@ int __stdcall cygloadCRTStartup(void)
     mov stackbase, eax;
   }
   _stackbase = stackbase;
-#  endif // __GNUC__
-# endif // __x86_64__
+#  endif  // __GNUC__
+# endif  // __x86_64__
 
   if ((_stackbase - _padding.end) != 0) {
     _padding.delta = (_stackbase - _padding.end);
@@ -182,7 +182,7 @@ int __stdcall cygloadCRTStartup(void)
   memcpy(_padding.end, _padding.block, _padding.delta);
   return result;
 }
-#endif // WIN32
+#endif  // WIN32
 
 void event_init(void)
 {
@@ -1445,9 +1445,9 @@ static void check_tty(mparm_T *parmp)
   } else if (parmp->want_full_screen && (!parmp->err_isatty
         && (!parmp->output_isatty || !parmp->input_isatty))) {
 
-    if (detect_mintty_type(fileno(stdin)) != NONE_MINTTY
-        || detect_mintty_type(fileno(stdout)) != NONE_MINTTY
-        || detect_mintty_type(fileno(stderr)) != NONE_MINTTY) {
+    if (detect_mintty_type(fileno(stdin)) != kNoneMintty
+        || detect_mintty_type(fileno(stdout)) != kNoneMintty
+        || detect_mintty_type(fileno(stderr)) != kNoneMintty) {
       if (!get_cygwin_dll_handle()) {
         mch_errmsg(_("Vim: Error: Failed LoadLibrary Cygwin dll\n"));
         exit(1);

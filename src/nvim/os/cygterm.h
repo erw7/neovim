@@ -1,5 +1,5 @@
-#ifndef NVIM_OS_CYGTERM_H
-#define NVIM_OS_CYGTERM_H
+#ifndef NVIM_SRC_NVIM_OS_CYGTERM_H
+#define NVIM_SRC_NVIM_OS_CYGTERM_H
 
 #include <windows.h>
 
@@ -8,22 +8,22 @@
 
 // THese struct came from ntdll.h of Cygwin
 //
-/* Checked on 64 bit. */
+// Checked on 64 bit.
 typedef struct _PEB_LDR_DATA
 {
   ULONG Length;
   BOOLEAN Initialized;
   PVOID SsHandle;
-  /* Heads up!  The pointers within the LIST_ENTRYs don't point to the
-     start of the next LDR_DATA_TABLE_ENTRY, but rather they point to the
-     start of their respective LIST_ENTRY *within* LDR_DATA_TABLE_ENTRY. */
+  // Heads up!  The pointers within the LIST_ENTRYs don't point to the
+  //   start of the next LDR_DATA_TABLE_ENTRY, but rather they point to the
+  //   start of their respective LIST_ENTRY *within* LDR_DATA_TABLE_ENTRY.
   LIST_ENTRY InLoadOrderModuleList;
   LIST_ENTRY InMemoryOrderModuleList;
   LIST_ENTRY InInitializationOrderModuleList;
   PVOID EntryInProgress;
 } PEB_LDR_DATA, *PPEB_LDR_DATA;
 
-/* Checked on 64 bit. */
+// Checked on 64 bit.
 typedef struct _RTL_USER_PROCESS_PARAMETERS
 {
   ULONG AllocationSize;
@@ -57,14 +57,14 @@ typedef struct _RTL_USER_PROCESS_PARAMETERS
 } RTL_USER_PROCESS_PARAMETERS, *PRTL_USER_PROCESS_PARAMETERS;
 
 
-/* Checked on 64 bit. */
+// Checked on 64 bit.
 typedef struct _CLIENT_ID
 {
   HANDLE UniqueProcess;
   HANDLE UniqueThread;
 } CLIENT_ID, *PCLIENT_ID;
 
-/* Checked on 64 bit. */
+// Checked on 64 bit.
 typedef struct _PEB
 {
   BYTE Reserved1[2];
@@ -81,10 +81,10 @@ typedef struct _PEB
   BYTE Reserved6[228];
   PVOID Reserved7[49];
   ULONG SessionId;
-  /* A lot more follows... */
+  // A lot more follows...
 } PEB, *PPEB;
 
-/* Checked on 64 bit. */
+// Checked on 64 bit.
 typedef struct _GDI_TEB_BATCH
 {
   ULONG Offset;
@@ -139,24 +139,24 @@ typedef struct _TEB
   PVOID ReservedForOle;
   PVOID Reserved5[4];
   PVOID TlsExpansionSlots;
-  /* A lot more follows... */
+  // A lot more follows...
 } TEB, *PTEB;
-#endif // __x86_64__
+#endif  // __x86_64__
 
 typedef enum {
-  NONE_MINTTY,
-  MINTTY_CYGWIN,
-  MINTTY_MSYS
+  kNoneMintty,
+  kMinttyCygwin,
+  kMinttyMsys
 } MinttyType;
 
 // These definition came from header file of Cygwin
 #define EINTR      4
-/* iflag bits */
+// iflag bits
 #define INLCR      0x00040
 #define ICRNL      0x00100
 #define IXON       0x00400
 
-/* lflag bits */
+// lflag bits
 #define ISIG       0x0001
 #define ICANON     0x0002
 #define ECHO       0x0004
@@ -173,11 +173,11 @@ typedef enum {
 
 #define CYG_O_BINARY   0x10000
 
-typedef unsigned char cc_t;
-typedef unsigned int  tcflag_t;
-typedef unsigned int  speed_t;
-typedef unsigned short otcflag_t;
-typedef unsigned char ospeed_t;
+typedef unsigned char    cc_t;
+typedef unsigned int     tcflag_t;
+typedef unsigned int     speed_t;
+typedef uint16_t         otcflag_t;
+typedef unsigned char    ospeed_t;
 
 // struct __oldtermios
 struct termios
@@ -207,18 +207,25 @@ struct termios
 
 struct winsize
 {
-  unsigned short ws_row, ws_col;
-  unsigned short ws_xpixel, ws_ypixel;
+  uint16_t ws_row, ws_col;
+  uint16_t ws_xpixel, ws_ypixel;
 };
+
+typedef int (*tcgetattr_fn) (int, struct termios *);
+typedef int (*tcsetattr_fn) (int, int, const struct termios *);
+typedef int (*ioctl_fn) (int, int, ...);
+typedef int (*open_fn) (const char *, int);
+typedef int (*close_fn) (int);
+typedef int * (*errno_fn) (void);
 
 typedef struct {
   HMODULE hmodule;
-  int (*tcgetattr) (int, struct termios *);
-  int (*tcsetattr) (int, int, const struct termios *);
-  int (*ioctl) (int, int, ...);
-  int (*open) (const char*, int);
-  int (*close) (int);
-  int* (*__errno) (void);
+  tcgetattr_fn tcgetattr;
+  tcsetattr_fn tcsetattr;
+  ioctl_fn ioctl;
+  open_fn open;
+  close_fn close;
+  errno_fn __errno;
   int fd;
   char *tty;
   bool is_started;
@@ -238,4 +245,4 @@ struct padding {
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "os/cygterm.h.generated.h"
 #endif
-#endif  // NVIM_OS_CYGTERM_H
+#endif  // NVIM_SRC_NVIM_OS_CYGTERM_H

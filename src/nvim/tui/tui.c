@@ -1251,13 +1251,11 @@ static void update_size(UI *ui)
       && !uv_tty_get_winsize(&data->output_handle.tty, &width, &height)) {
     goto end;
 #ifdef WIN32
- } else if (data->cygterm
+  } else if (data->cygterm
             && cygterm_get_winsize(data->cygterm, &width, &height)) {
     goto end;
- }
-#else
-  }
 #endif
+  }
   // 3 - use $LINES/$COLUMNS if available
   const char *val;
   int advance;
