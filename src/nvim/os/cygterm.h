@@ -213,7 +213,6 @@ struct winsize
 
 typedef struct {
   HMODULE hmodule;
-  void (*init) (void);
   int (*tcgetattr) (int, struct termios *);
   int (*tcsetattr) (int, int, const struct termios *);
   int (*ioctl) (int, int, ...);

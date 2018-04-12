@@ -70,6 +70,45 @@ MinttyType detect_mintty_type(int fd)
   return p != NULL ? result : NONE_MINTTY;
 }
 
+HMODULE get_cygwin_dll_handle(void)
+{
+  static HMODULE hmodule = NULL;
+  void (*init)(void);
+  if (hmodule) {
+    return hmodule;
+  } else {
+    MinttyType mintty;
+    const char *dll = NULL;
+    const char *init_func = NULL;
+    for (int i = 0; i < 3; i++) {
+      mintty = detect_mintty_type(i);
+      if (mintty == MINTTY_CYGWIN) {
+        dll = CYGWDLL;
+        init_func = CYG_INIT_FUNC;
+        break;
+      } else if (mintty == MINTTY_MSYS) {
+        dll = MSYSDLL;
+        init_func = MSYS_INIT_FUNC;
+        break;
+      }
+    }
+    if (dll) {
+      hmodule = LoadLibrary(dll);
+      if (!hmodule) {
+        return NULL;
+      }
+      init = (void (*)(void))GetProcAddress(hmodule, init_func);
+      if (init) {
+        init();
+      } else {
+        hmodule = NULL;
+      }
+    }
+  }
+  return hmodule;
+}
+}
+
 CygTerm *cygterm_new(int fd)
 {
   MinttyType mintty = detect_mintty_type(fd);
@@ -82,19 +121,7 @@ CygTerm *cygterm_new(int fd)
     return NULL;
   }
 
-  if (mintty == MINTTY_CYGWIN) {
-    cygterm->hmodule = LoadLibrary(CYGWDLL);
-    if (!cygterm->hmodule) {
-      goto abort;
-    }
-    cygterm->init = (void (*)(void))GetProcAddress(cygterm->hmodule, CYG_INIT_FUNC);
-  } else {
-    cygterm->hmodule = LoadLibrary(MSYSDLL);
-    if (!cygterm->hmodule) {
-      goto abort;
-    }
-    cygterm->init = (void (*)(void))GetProcAddress(cygterm->hmodule, MSYS_INIT_FUNC);
-  }
+  cygterm->hmodule = get_cygwin_dll_handle();
   cygterm->tcgetattr = (int (*)(int, struct termios *))GetProcAddress(cygterm->hmodule, "tcgetattr");
   cygterm->tcsetattr = (int (*)(int, int, const struct termios *))GetProcAddress(cygterm->hmodule, "tcsetattr");
   cygterm->ioctl = (int (*)(int, int, ...))GetProcAddress(cygterm->hmodule, "ioctl");
@@ -102,11 +129,10 @@ CygTerm *cygterm_new(int fd)
   cygterm->close = (int (*)(int))GetProcAddress(cygterm->hmodule, "close");
   cygterm->__errno = (int* (*)(void))GetProcAddress(cygterm->hmodule, "__errno");
 
-  if (!cygterm->init || !cygterm->tcgetattr || !cygterm->tcsetattr || !cygterm->ioctl || !cygterm->open || !cygterm->close || !cygterm->__errno) {
+  if (!cygterm->tcgetattr || !cygterm->tcsetattr || !cygterm->ioctl || !cygterm->open || !cygterm->close || !cygterm->__errno) {
     goto abort;
   }
   cygterm->is_started = FALSE;
-  cygterm->init();
   const char* tty = os_getenv("TTY");
   if (!tty){
     goto abort;

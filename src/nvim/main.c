@@ -70,6 +70,8 @@
 #include "nvim/api/private/dispatch.h"
 #ifndef WIN32
 # include "nvim/os/pty_process_unix.h"
+#else
+# include "nvim/os/cygterm.h"
 #endif
 
 // Maximum number of commands from + or -c arguments.
@@ -1443,6 +1445,14 @@ static void check_tty(mparm_T *parmp)
   } else if (parmp->want_full_screen && (!parmp->err_isatty
         && (!parmp->output_isatty || !parmp->input_isatty))) {
 
+    if (detect_mintty_type(fileno(stdin)) != NONE_MINTTY
+        || detect_mintty_type(fileno(stdout)) != NONE_MINTTY
+        || detect_mintty_type(fileno(stderr)) != NONE_MINTTY) {
+      if (!get_cygwin_dll_handle()) {
+        mch_errmsg(_("Vim: Error: Failed LoadLibrary Cygwin dll\n"));
+        exit(1);
+      }
+    }
     if (!parmp->output_isatty) {
       mch_errmsg(_("Vim: Warning: Output is not to a terminal\n"));
     }
