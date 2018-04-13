@@ -149,6 +149,11 @@ typedef enum {
   kMinttyMsys
 } MinttyType;
 
+typedef enum {
+  kMinttyType,
+  kPtyNo
+} MinttyQueryType;
+
 // These definition came from header file of Cygwin
 #define EINTR      4
 // iflag bits

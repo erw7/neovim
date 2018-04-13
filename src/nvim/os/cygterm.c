@@ -1,6 +1,7 @@
 #include <fcntl.h>
 #include <io.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 #include "nvim/os/os.h"
 #include "nvim/os/cygterm.h"
@@ -15,10 +16,12 @@
 // https://fossies.org/linux/vim/src/iscygpty.c
 // See https://github.com/BurntSushi/ripgrep/issues/94#issuecomment-261745480
 // for an explanation on why this works
-MinttyType detect_mintty_type(int fd)
+int query_mintty(int fd, MinttyQueryType query_type)
 {
-  const int size = sizeof(FILE_NAME_INFO) + sizeof(WCHAR) * MAX_PATH;
+  const size_t size = sizeof(FILE_NAME_INFO) + sizeof(WCHAR) * MAX_PATH;
   WCHAR *p = NULL;
+  WCHAR *start_pty_no = NULL;
+  WCHAR *end_pty_no = NULL;
 
   const HANDLE h = (HANDLE)_get_osfhandle(fd);
   if (h == INVALID_HANDLE_VALUE) {
@@ -34,16 +37,16 @@ MinttyType detect_mintty_type(int fd)
   }
   // Check the name of the pipe:
   // '\{cygwin,msys}-XXXXXXXXXXXXXXXX-ptyN-{from,to}-master'
-  MinttyType result = kNoneMintty;
+  int result = (int)kNoneMintty;
   if (GetFileInformationByHandleEx(h, FileNameInfo, nameinfo, size)) {
     nameinfo->FileName[nameinfo->FileNameLength / sizeof(WCHAR)] = L'\0';
     p = nameinfo->FileName;
     if (wcsstr(p, L"\\cygwin-") == p) {
       p += 8;
-      result = kMinttyCygwin;
+      result = (int)kMinttyCygwin;
     } else if (wcsstr(p, L"\\msys-") == p) {
       p += 6;
-      result = kMinttyMsys;
+      result = (int)kMinttyMsys;
     } else {
       p = NULL;
     }
@@ -58,16 +61,48 @@ MinttyType detect_mintty_type(int fd)
       }
     }
     if (p != NULL) {
+      start_pty_no = p;
       while (*p && isdigit(*p)) {  // Skip pty number.
         p++;
       }
+      end_pty_no = p;
       if (wcsstr(p, L"-from-master") != p && wcsstr(p, L"-to-master") != p) {
-        p = NULL;
+        p = start_pty_no = end_pty_no = NULL;
       }
     }
   }
+  if (query_type == kPtyNo && start_pty_no && end_pty_no) {
+    WCHAR *endptr = NULL;
+    result = wcstoul(start_pty_no, &endptr, 10);
+    if (end_pty_no != endptr) {
+      result = -1;
+    }
+  } else if (query_type == kMinttyType) {
+    result =  p != NULL ? result : (int)kNoneMintty;
+  } else {
+    result = -1;
+  }
   xfree(nameinfo);
-  return p != NULL ? result : kNoneMintty;
+  return result;
+}
+
+MinttyType detect_mintty_type(int fd)
+{
+  int type = query_mintty(fd, kMinttyType);
+  switch (type) {
+    case (int)kMinttyMsys:  // NOLINT(whitespace/parens)
+      return kMinttyMsys;
+    case (int)kMinttyCygwin:  // NOLINT(whitespace/parens)
+
+      return kMinttyCygwin;
+    default:
+      return kNoneMintty;
+  }
+}
+
+int get_pty_no(int fd)
+{
+  return query_mintty(fd, kPtyNo);
 }
 
 HMODULE get_cygwin_dll_handle(void)
@@ -139,13 +174,15 @@ CygTerm *cygterm_new(int fd)
     goto abort;
   }
   cygterm->is_started = false;
-  const char *tty = os_getenv("TTY");
-  if (!tty) {
+  int pty_no = get_pty_no(fd);
+  if (pty_no == -1) {
     goto abort;
   }
-  size_t len = strlen(tty) + 1;
+  char pty_dev[MAX_PATH];
+  snprintf(pty_dev, sizeof(pty_dev), "/dev/pty%d", pty_no);
+  size_t len = strlen(pty_dev) + 1;
   cygterm->tty = xmalloc(len);
-  snprintf(cygterm->tty, len, "%s", tty);
+  snprintf(cygterm->tty, len, "%s", pty_dev);
   cygterm->fd = -1;
   cygterm_start(cygterm);
   return cygterm;
