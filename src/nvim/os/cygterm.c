@@ -1,5 +1,4 @@
 #include <fcntl.h>
-#include <io.h>
 #include <stdbool.h>
 #include <stdlib.h>
 
@@ -11,6 +10,31 @@
 #define MSYSDLL "msys-2.0.dll"
 #define CYG_INIT_FUNC "cygwin_dll_init"
 #define MSYS_INIT_FUNC "msys_dll_init"
+
+// These definition came from header file of Cygwin
+#define EINTR      4
+// iflag bits
+#define INLCR      0x00040
+#define ICRNL      0x00100
+#define IXON       0x00400
+
+// lflag bits
+#define ISIG       0x0001
+#define ICANON     0x0002
+#define ECHO       0x0004
+#define IEXTEN     0x0100
+
+#define TCSANOW    2
+
+#define TIOCGWINSZ (('T' << 8) | 1)
+
+#define CYG_O_BINARY   0x10000
+
+struct winsize
+{
+  uint16_t ws_row, ws_col;
+  uint16_t ws_xpixel, ws_ypixel;
+};
 
 // Hack to detect mintty, ported from vim
 // https://fossies.org/linux/vim/src/iscygpty.c
