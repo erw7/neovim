@@ -1644,9 +1644,9 @@ static void patch_terminfo_bugs(TUIData *data, const char *term,
             || iterm || iterm_pretending_xterm
             || teraterm    // per TeraTerm "Supported Control Functions" doco
             || alacritty  // https://github.com/jwilm/alacritty/pull/608
+            || cygwin
             // Some linux-type terminals implement the xterm extension.
             // Example: console-terminal-emulator from the nosh toolset.
-            || cygwin
             || (linuxvt
                 && (xterm_version || (vte_version > 0) || colorterm)))) {
       data->unibi_ext.set_cursor_style =
