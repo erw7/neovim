@@ -1,0 +1,194 @@
+diff --git a/driver-csi.c b/driver-csi.c
+index 4a76b8d..3c13f23 100644
+--- a/driver-csi.c
++++ b/driver-csi.c
+@@ -1,6 +1,9 @@
+ #include "termkey.h"
+ #include "termkey-internal.h"
+ 
++#ifdef HAVE_UNIBILIUM
++# include <unibilium.h>
++#endif
+ #include <stdio.h>
+ #include <string.h>
+ 
+@@ -499,7 +502,11 @@ static int register_keys(void)
+   return 1;
+ }
+ 
++#ifdef HAVE_UNIBILIUM
++static void *new_driver(TermKey *tk, const char *term, unibi_term *unibi)
++#else
+ static void *new_driver(TermKey *tk, const char *term)
++#endif
+ {
+   if(!keyinfo_initialised)
+     if(!register_keys())
+diff --git a/driver-ti.c b/driver-ti.c
+index 07f5424..92e5f28 100644
+--- a/driver-ti.c
++++ b/driver-ti.c
+@@ -283,7 +283,11 @@ static int load_terminfo(TermKeyTI *ti)
+   return 1;
+ }
+ 
++#ifdef HAVE_UNIBILIUM
++static void *new_driver(TermKey *tk, const char *term, unibi_term *unibi)
++#else
+ static void *new_driver(TermKey *tk, const char *term)
++#endif
+ {
+   TermKeyTI *ti = malloc(sizeof *ti);
+   if(!ti)
+@@ -293,7 +297,9 @@ static void *new_driver(TermKey *tk, const char *term)
+   ti->root = NULL;
+ 
+ #ifdef HAVE_UNIBILIUM
+-  ti->unibi = unibi_from_term(term);
++  if (!term && !unibi)
++    goto abort_free;
++  ti->unibi = unibi ? unibi : unibi_from_term(term);
+   if(!ti->unibi)
+     goto abort_free;
+ #else
+diff --git a/termkey-internal.h b/termkey-internal.h
+index b796729..31f1822 100644
+--- a/termkey-internal.h
++++ b/termkey-internal.h
+@@ -3,6 +3,10 @@
+ 
+ #include "termkey.h"
+ 
++#ifdef HAVE_UNIBILIUM
++# include <unibilium.h>
++#endif
++
+ #include <stdint.h>
+ #ifndef _WIN32
+ # include <termios.h>
+@@ -16,7 +20,11 @@ typedef SSIZE_T ssize_t;
+ struct TermKeyDriver
+ {
+   const char      *name;
++#ifdef HAVE_UNIBILIUM
++  void          *(*new_driver)(TermKey *tk, const char *term, unibi_term *unibi);
++#else
+   void          *(*new_driver)(TermKey *tk, const char *term);
++#endif
+   void           (*free_driver)(void *info);
+   int            (*start_driver)(TermKey *tk, void *info);
+   int            (*stop_driver)(TermKey *tk, void *info);
+diff --git a/termkey.c b/termkey.c
+index b7cd56c..0b304ff 100644
+--- a/termkey.c
++++ b/termkey.c
+@@ -1,6 +1,9 @@
+ #include "termkey.h"
+ #include "termkey-internal.h"
+ 
++#ifdef HAVE_UNIBILIUM
++# include <unibilium.h>
++#endif
+ #include <ctype.h>
+ #include <errno.h>
+ #ifndef _WIN32
+@@ -318,7 +321,11 @@ static TermKey *termkey_alloc(void)
+   return tk;
+ }
+ 
++#ifdef HAVE_UNIBILIUM
++static int termkey_init(TermKey *tk, const char *term, unibi_term *unibi)
++#else
+ static int termkey_init(TermKey *tk, const char *term)
++#endif
+ {
+   tk->buffer = malloc(tk->buffsize);
+   if(!tk->buffer)
+@@ -343,7 +350,11 @@ static int termkey_init(TermKey *tk, const char *term)
+   struct TermKeyDriverNode *tail = NULL;
+ 
+   for(i = 0; drivers[i]; i++) {
++#ifdef HAVE_UNIBILIUM
++    void *info = (*drivers[i]->new_driver)(tk, term, unibi);
++#else
+     void *info = (*drivers[i]->new_driver)(tk, term);
++#endif
+     if(!info)
+       continue;
+ 
+@@ -421,7 +432,11 @@ TermKey *termkey_new(int fd, int flags)
+ 
+   const char *term = getenv("TERM");
+ 
++#ifdef HAVE_UNIBILIUM
++  if(!termkey_init(tk, term, NULL))
++#else
+   if(!termkey_init(tk, term))
++#endif
+     goto abort;
+ 
+   if(!(flags & TERMKEY_FLAG_NOSTART) && !termkey_start(tk))
+@@ -434,7 +449,11 @@ abort:
+   return NULL;
+ }
+ 
++#ifdef HAVE_UNIBILIUM
++TermKey *termkey_new_abstract_common(const char *term, unibi_term *unibi, int flags)
++#else
+ TermKey *termkey_new_abstract(const char *term, int flags)
++#endif
+ {
+   TermKey *tk = termkey_alloc();
+   if(!tk)
+@@ -444,7 +463,11 @@ TermKey *termkey_new_abstract(const char *term, int flags)
+ 
+   termkey_set_flags(tk, flags);
+ 
++#ifdef HAVE_UNIBILIUM
++  if(!termkey_init(tk, term, unibi)) {
++#else
+   if(!termkey_init(tk, term)) {
++#endif
+     free(tk);
+     return NULL;
+   }
+@@ -459,6 +482,18 @@ abort:
+   return NULL;
+ }
+ 
++#ifdef HAVE_UNIBILIUM
++TermKey *termkey_new_abstract_from_unibi(unibi_term *unibi, int flags)
++{
++  return termkey_new_abstract_common(NULL, unibi, flags);
++}
++
++TermKey *termkey_new_abstract(const char *term, int flags)
++{
++  return termkey_new_abstract_common(term, NULL, flags);
++}
++#endif
++
+ void termkey_free(TermKey *tk)
+ {
+   free(tk->buffer); tk->buffer = NULL;
+diff --git a/termkey.h b/termkey.h
+index 4f19097..8ab77b4 100644
+--- a/termkey.h
++++ b/termkey.h
+@@ -5,6 +5,8 @@ extern "C" {
+ #ifndef GUARD_TERMKEY_H_
+ #define GUARD_TERMKEY_H_
+ 
++#include <unibilium.h>
++
+ #include <stdint.h>
+ #include <stdlib.h>
+ 
+@@ -166,6 +170,7 @@ void termkey_check_version(int major, int minor);
+ 
+ TermKey *termkey_new(int fd, int flags);
+ TermKey *termkey_new_abstract(const char *term, int flags);
++TermKey *termkey_new_abstract_from_unibi(unibi_term *unibi, int flags);
+ void     termkey_free(TermKey *tk);
+ void     termkey_destroy(TermKey *tk);
+ 

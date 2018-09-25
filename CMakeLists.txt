@@ -434,6 +434,22 @@ if(FEAT_TUI)
 
   find_package(LibTermkey REQUIRED)
   include_directories(SYSTEM ${LIBTERMKEY_INCLUDE_DIRS})
+
+  list(APPEND CMAKE_REQUIRED_INCLUDES "${LIBTERMKEY_INCLUDE_DIRS}")
+  list(FIND CMAKE_REQUIRED_LIBRARIES "${UNIBILIUM_LIBRARIES}" index)
+  list(INSERT CMAKE_REQUIRED_LIBRARIES ${index} "${LIBTERMKEY_LIBRARIES}")
+  check_c_source_compiles("
+  #include <termkey.h>
+
+  int main(void)
+  {
+    termkey_new_abstract_from_unibi(NULL, 0);
+    return 0;
+  }
+  " LIBTERMKEY_HAS_CONSTRUCTOR_WITH_UNIBI_TERM)
+  if(LIBTERMKEY_HAS_CONSTRUCTOR_WITH_UNIBI_TERM)
+    add_definitions(-DNVIM_LIBTERMKEY_HAS_CONSTRUCTOR_WITH_UNIBI_TERM)
+  endif()
 endif()
 
 find_package(LibVterm REQUIRED)
