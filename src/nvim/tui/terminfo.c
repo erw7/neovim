@@ -97,18 +97,36 @@ static unibi_term *terminfo_builtin(const char *term, char **termname)
   }
 }
 
-/// @param term $TERM value
-/// @param[out,allocated] termname decided builtin 'term' name
+/// @param[out,allocated] termname decided 'term' name
 /// @return [allocated] terminfo structure
-unibi_term *terminfo_from_builtin(const char *term, char **termname)
+unibi_term *terminfo_detect(const char *term, char **termname, int fd)
 {
-  unibi_term *ut = terminfo_builtin(term, termname);
-  if (*termname == NULL) {
-    *termname = xstrdup("builtin_?");
+#ifdef WIN32
+  if (term == NULL) {
+# ifdef NVIM_UV_HAS_GUESS_TTY
+    int tty_type = uv_guess_tty(fd);
+    if (tty_type & UV_TTY_VTP || tty_type & UV_TTY_CONEMU) {
+      term = "xterm-256color";
+    } else {
+      term = "cygwin";
+    }
+# else
+    term = "cygwin;"
+# endif  // NVIM_UV_HAS_GUESS_TTY
   }
-  // Disable BCE by default (for built-in terminfos). #7624
-  // https://github.com/kovidgoyal/kitty/issues/160#issuecomment-346470545
-  unibi_set_bool(ut, unibi_back_color_erase, false);
+#endif  // WIN32
+  unibi_term *ut = unibi_from_env();
+  if (!term || !ut) {
+    ut = terminfo_builtin(term, termname);
+    if (*termname == NULL) {
+      *termname = xstrdup("builtin_?");
+    }
+    // Disable BCE by default (for built-in terminfos). #7624
+    // https://github.com/kovidgoyal/kitty/issues/160#issuecomment-346470545
+    unibi_set_bool(ut, unibi_back_color_erase, false);
+  } else {
+    *termname = xstrdup(term);
+  }
   return ut;
 }
 

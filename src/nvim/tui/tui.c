@@ -63,6 +63,16 @@
 #define UNIBI_SET_NUM_VAR(var, num) (var).i = (num);
 #endif
 
+#ifdef WIN32
+#define F1_STR_WIN    "\033[[A"
+#define F2_STR_WIN    "\033[[B"
+#define F3_STR_WIN    "\033[[C"
+#define F4_STR_WIN    "\033[[D"
+#define F5_STR_WIN    "\033[[E"
+#define HOME_STR_WIN  "\033[1~"
+#define END_STR_WIN   "\033[4~"
+#endif
+
 typedef struct {
   int top, bot, left, right;
 } Rect;
@@ -209,23 +219,8 @@ static void terminfo_start(UI *ui)
 
   // Set up unibilium/terminfo.
   const char *term = os_getenv("TERM");
-#if defined(WIN32) && defined(NVIM_UV_HAS_GUESS_TTY)
-  if (term == NULL) {
-    int tty_type = uv_guess_tty(data->out_fd);
-    if (tty_type & UV_TTY_VTP || tty_type & UV_TTY_CONEMU) {
-      term = "xterm-256color";
-    } else {
-      term = "cygwin";
-    }
-  }
-#endif
-  data->ut = unibi_from_env();
   char *termname = NULL;
-  if (!term || !data->ut) {
-    data->ut = terminfo_from_builtin(term, &termname);
-  } else {
-    termname = xstrdup(term);
-  }
+  data->ut = terminfo_detect(term, &termname, data->out_fd);
   // Update 'term' option.
   loop_schedule_deferred(&main_loop,
                          event_create(termname_set_event, 1, termname));
@@ -1933,7 +1928,32 @@ static const char *tui_tk_ti_getstr(const char *name, const char *value,
     // for mouse input, which by accident only supports X10 protocol.
     // Force libtermkey to fallback to its CSI driver (driver-csi.c). #7948
     return NULL;
+#ifndef WIN32
   }
+#else
+  } else if (strequal(name, "key_f1")) {
+    DLOG("libtermkey:kf1=%s", value);
+    return F1_STR_WIN;
+  } else if (strequal(name, "key_f2")) {
+    DLOG("libtermkey:kf2=%s", value);
+    return F2_STR_WIN;
+  } else if (strequal(name, "key_f3")) {
+    DLOG("libtermkey:kf3=%s", value);
+    return F3_STR_WIN;
+  } else if (strequal(name, "key_f4")) {
+    DLOG("libtermkey:kf4=%s", value);
+    return F4_STR_WIN;
+  } else if (strequal(name, "key_f5")) {
+    DLOG("libtermkey:kf5=%s", value);
+    return F5_STR_WIN;
+  } else if (strequal(name, "key_home")) {
+    DLOG("libtermkey:khome=%s", value);
+    return HOME_STR_WIN;
+  } else if (strequal(name, "key_end")) {
+    DLOG("libtermkey:kend=%s", value);
+    return END_STR_WIN;
+  }
+#endif
 
   return value;
 }

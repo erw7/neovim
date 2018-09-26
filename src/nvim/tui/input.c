@@ -11,6 +11,7 @@
 #include "nvim/aucmd.h"
 #include "nvim/os/os.h"
 #include "nvim/os/input.h"
+#include "nvim/tui/terminfo.h"
 #include "nvim/event/rstream.h"
 
 #define PASTETOGGLE_KEY "<Paste>"
@@ -30,28 +31,21 @@ void term_input_init(TermInput *input, Loop *loop)
   uv_cond_init(&input->key_buffer_cond);
 
   const char *term = os_getenv("TERM");
-#ifdef NVIM_LIBTERMKEY_HAS_CONSTRUCTOR_WITH_UNIBI_TERM
-  unibi_term *ut;
-  ut = unibi_from_env();
-  char *termname = NULL;
-  if (!term || !ut) {
-    ut = terminfo_from_builtin(term, &termname);
-  }
-#else
   if (!term) {
     term = "";  // termkey_new_abstract assumes non-null (#2745)
   }
-#endif
-
 #if TERMKEY_VERSION_MAJOR > 0 || TERMKEY_VERSION_MINOR > 18
-#ifdef NVIM_LIBTERMKEY_HAS_CONSTRUCTOR_WITH_UNIBI_TERM
+# ifdef NVIM_LIBTERMKEY_HAS_CONSTRUCTOR_WITH_UNIBI_TERM
+  char *termname = NULL;
+  unibi_term *ut = terminfo_detect(term, &termname, input->in_fd);
+  xfree(termname);
   // Do not call unibi_destroy because unibi_destroy is called within termkey_start
   input->tk = termkey_new_abstract_from_unibi(
       ut, TERMKEY_FLAG_UTF8 | TERMKEY_FLAG_NOSTART);
-#else
+# else
   input->tk = termkey_new_abstract(term,
                                    TERMKEY_FLAG_UTF8 | TERMKEY_FLAG_NOSTART);
-#endif
+# endif
   termkey_hook_terminfo_getstr(input->tk, input->tk_ti_hook_fn, NULL);
   termkey_start(input->tk);
 #else
