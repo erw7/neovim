@@ -1961,6 +1961,14 @@ static const char *tui_tk_ti_getstr(const char *name, const char *value,
     return NULL;
   }
 
+  for (enum unibi_string i = unibi_key_f38; i <= unibi_key_f63; i++) {
+    const char *key_name = unibi_name_str(i);
+    DLOG("libtermkey:%s=%s", key_name, value);
+    if (strequal(name, key_name)) {
+      return NULL;
+    }
+  }
+
   return value;
 }
 #endif
