@@ -67,6 +67,8 @@ void tinput_init(TermInput *input, Loop *loop)
   // Old os_getenv() pointer is invalid after os_setenv(), fetch it again.
   term = os_getenv("TERM");
 # ifdef NVIM_UNIBI_HAS_SET_FALLBACK
+  // libtermkey uses unibi_from_term internally, need to registr a fallback
+  // function that returns the builtin terminfo instead of NULL.
   unibi_set_fallback(unibi_fallback);
 # endif
 #endif
