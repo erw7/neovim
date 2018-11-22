@@ -38,9 +38,9 @@ endfunction()
 
 if(WIN32)
   if(MSVC)
-    set(BUILD_SHARED OFF)
-  else()
     set(BUILD_SHARED ON)
+  else()
+    set(BUILD_SHARED OFF)
   endif()
   set(LIBUV_PATCH_COMMAND ${GIT_EXECUTABLE} -C ${DEPS_BUILD_DIR}/src/libuv init
     COMMAND ${GIT_EXECUTABLE} -C ${DEPS_BUILD_DIR}/src/libuv apply --ignore-whitespace
