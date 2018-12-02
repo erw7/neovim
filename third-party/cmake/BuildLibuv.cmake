@@ -37,18 +37,14 @@ function(BuildLibuv)
 endfunction()
 
 if(WIN32)
-  if(MSVC)
-    set(BUILD_SHARED ON)
-  else()
-    set(BUILD_SHARED OFF)
-  endif()
   set(LIBUV_PATCH_COMMAND ${GIT_EXECUTABLE} -C ${DEPS_BUILD_DIR}/src/libuv init
     COMMAND ${GIT_EXECUTABLE} -C ${DEPS_BUILD_DIR}/src/libuv apply --ignore-whitespace
-    ${CMAKE_CURRENT_SOURCE_DIR}/patches/libuv-Improve-CMakeLists.patch)
+    ${CMAKE_CURRENT_SOURCE_DIR}/patches/libuv-Fix-install-library-names.patch
+    COMMAND ${GIT_EXECUTABLE} -C ${DEPS_BUILD_DIR}/src/libuv apply --ignore-whitespace
+    ${CMAKE_CURRENT_SOURCE_DIR}/patches/libuv-Add-install-target-on-Windows.patch)
 else()
-  set(BUILD_SHARED OFF)
   set(LIBUV_PATCH_COMMAND patch -d ${DEPS_BUILD_DIR}/src/libuv -Np1 --input
-    ${CMAKE_CURRENT_SOURCE_DIR}/patches/libuv-Improve-CMakeLists.patch)
+    ${CMAKE_CURRENT_SOURCE_DIR}/patches/libuv-Fix-install-library-names.patch)
 endif()
 
 set(LIBUV_CONFIGURE_COMMAND ${CMAKE_COMMAND} ${DEPS_BUILD_DIR}/src/libuv
@@ -66,7 +62,16 @@ if(UNIX)
 endif()
 
 set(LIBUV_BUILD_COMMAND ${CMAKE_COMMAND} --build . --config ${CMAKE_BUILD_TYPE})
-set(LIBUV_INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install --config ${CMAKE_BUILD_TYPE})
+if(MSVC)
+  # Since building luv-static fails, remove the static library.
+  set(LIBUV_INSTALL_COMMAND ${CMAKE_COMMAND}
+    --build . --target install --config ${CMAKE_BUILD_TYPE}
+    COMMAND ${CMAKE_COMMAND} -E remove ${DEPS_INSTALL_DIR}/lib/uv.lib
+    COMMAND ${CMAKE_COMMAND} -E rename
+      ${DEPS_INSTALL_DIR}/lib/uv_import.lib ${DEPS_INSTALL_DIR}/lib/uv.lib)
+else()
+  set(LIBUV_INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install --config ${CMAKE_BUILD_TYPE})
+endif()
 
 if(MINGW AND CMAKE_CROSSCOMPILING)
   get_filename_component(TOOLCHAIN ${CMAKE_TOOLCHAIN_FILE} REALPATH)

@@ -1,0 +1,75 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 8cd86271..2ddd8b3a 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -328,35 +328,37 @@ if(CMAKE_SYSTEM_NAME MATCHES "Darwin|DragonFly|FreeBSD|Linux|NetBSD|OpenBSD")
+   list(APPEND uv_test_libraries util)
+ endif()
+ 
+-add_library(uv SHARED ${uv_sources})
+-target_compile_definitions(uv PRIVATE ${uv_defines} BUILDING_UV_SHARED=1)
+-target_compile_options(uv PRIVATE ${uv_cflags})
+-target_include_directories(uv PRIVATE include src)
+-target_link_libraries(uv ${uv_libraries})
++add_library(uv_shared SHARED ${uv_sources})
++target_compile_definitions(uv_shared PRIVATE ${uv_defines} BUILDING_UV_SHARED=1)
++target_compile_options(uv_shared PRIVATE ${uv_cflags})
++target_include_directories(uv_shared PRIVATE include src)
++target_link_libraries(uv_shared ${uv_libraries})
++set_target_properties(uv_shared PROPERTIES OUTPUT_NAME "uv")
+ 
+-add_library(uv_a STATIC ${uv_sources})
+-target_compile_definitions(uv_a PRIVATE ${uv_defines})
+-target_compile_options(uv_a PRIVATE ${uv_cflags})
+-target_include_directories(uv_a PRIVATE include src)
+-target_link_libraries(uv_a ${uv_libraries})
++add_library(uv_static STATIC ${uv_sources})
++target_compile_definitions(uv_static PRIVATE ${uv_defines})
++target_compile_options(uv_static PRIVATE ${uv_cflags})
++target_include_directories(uv_static PRIVATE include src)
++target_link_libraries(uv_static ${uv_libraries})
++set_target_properties(uv_static PROPERTIES OUTPUT_NAME "uv")
+ 
+ if(BUILD_TESTING)
+   include(CTest)
+-  add_executable(uv_run_tests ${uv_test_sources})
+-  target_compile_definitions(uv_run_tests PRIVATE ${uv_defines})
+-  target_compile_options(uv_run_tests PRIVATE ${uv_cflags})
+-  target_include_directories(uv_run_tests PRIVATE include)
+-  target_link_libraries(uv_run_tests uv ${uv_test_libraries})
+-  add_test(NAME uv_test
+-           COMMAND uv_run_tests
++  add_executable(uv_run_tests_shared ${uv_test_sources})
++  target_compile_definitions(uv_run_tests_shared PRIVATE ${uv_defines})
++  target_compile_options(uv_run_tests_shared PRIVATE ${uv_cflags})
++  target_include_directories(uv_run_tests_shared PRIVATE include)
++  target_link_libraries(uv_run_tests_shared uv_shared ${uv_test_libraries})
++  add_test(NAME uv_test_shared
++           COMMAND uv_run_tests_shared
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+-  add_executable(uv_run_tests_a ${uv_test_sources})
+-  target_compile_definitions(uv_run_tests_a PRIVATE ${uv_defines})
+-  target_compile_options(uv_run_tests_a PRIVATE ${uv_cflags})
+-  target_include_directories(uv_run_tests_a PRIVATE include)
+-  target_link_libraries(uv_run_tests_a uv_a ${uv_test_libraries})
+-  add_test(NAME uv_test_a
+-           COMMAND uv_run_tests_a
++  add_executable(uv_run_tests_static ${uv_test_sources})
++  target_compile_definitions(uv_run_tests_static PRIVATE ${uv_defines})
++  target_compile_options(uv_run_tests_static PRIVATE ${uv_cflags})
++  target_include_directories(uv_run_tests_static PRIVATE include)
++  target_link_libraries(uv_run_tests_static uv_static ${uv_test_libraries})
++  add_test(NAME uv_test_static
++           COMMAND uv_run_tests_static
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+ endif()
+ 
+@@ -377,6 +379,6 @@ if(UNIX)
+   install(FILES LICENSE DESTINATION ${CMAKE_INSTALL_DOCDIR})
+   install(FILES LICENSE ${CMAKE_CURRENT_BINARY_DIR}/libuv.pc
+           DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+-  install(TARGETS uv LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+-  install(TARGETS uv_a ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
++  install(TARGETS uv_shared LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
++  install(TARGETS uv_static ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+ endif()
