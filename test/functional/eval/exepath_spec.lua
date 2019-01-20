@@ -6,7 +6,9 @@ describe('exepath() (Windows)', function()
   if not iswin() then return end  -- N/A for Unix.
 
   it('append extension, even if omit extension', function()
-    clear({env={PATH=[[C:\Windows\system32;C:\Windows]]}})
-    eq('c:\\windows\\system32\\cmd.exe', string.lower(call('exepath', 'cmd')))
+    local filename = 'cmd'
+    local pathext = '.exe'
+    clear({env={PATHEXT=pathext}})
+    eq(call('exepath', filename..pathext), call('exepath', filename))
   end)
 end)
