@@ -29,6 +29,9 @@
 
 #ifdef WIN32
 #include "nvim/mbyte.h"  // for utf8_to_utf16, utf16_to_utf8
+#define SOC_KEY L"\\shell\\open\\command"
+#define TOTALBYTES    8192
+#define BYTEINCREMENT 4096
 #endif
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
@@ -302,7 +305,6 @@ static bool is_extension_executable(const char *name)
     return true;
   }
 
-  const char *pathext = get_pathext();
   const char *ext_pos = name + STRLEN(name) - 1;
   while (name != ext_pos) {
     if (*ext_pos == '\\' || *ext_pos == '/') {
@@ -315,28 +317,77 @@ static bool is_extension_executable(const char *name)
     ext_pos--;
   }
 
-  const char *cur_pos = pathext;
-  while (true) {
-    // Don't check extension, if $PATHEXT contain dot itself.
-    if (*cur_pos == '.'
-        && (*(cur_pos + 1) == ENV_SEPCHAR || *(cur_pos + 1) == NUL)) {
-      return true;
-    }
-    const char *ext_end = strchr(cur_pos, ENV_SEPCHAR);
-    size_t ext_len = ext_end ?
-      (size_t)(ext_end - cur_pos) :
-      (STRLEN(pathext) - (size_t)(cur_pos - pathext));
-    if (ext_pos != name && mb_strnicmp((const char_u *)ext_pos,
-                                       (const char_u *)cur_pos, ext_len) == 0) {
-      return true;
-    }
-    if (ext_end == NULL) {
-      break;
-    } else {
-      cur_pos = ++ext_end;
-    }
+  // File has no extension
+  if (ext_pos == name) {
+    return false;
   }
-  return false;
+
+  wchar_t *ext = NULL;
+  if (utf8_to_utf16(ext_pos, &ext) != 0) {
+    return false;
+  }
+
+  bool result = false;
+  wchar_t *ext_key = NULL;
+  BYTE *prog_id = NULL;
+  wchar_t *prog_id_key = NULL;
+
+  size_t len = wcslen(SOC_KEY) + wcslen(ext) + 1;
+  ext_key = (wchar_t*)xmalloc(sizeof(wchar_t) * len);
+  _snwprintf(ext_key, len, L"%s%s", ext, SOC_KEY);
+  HKEY key;
+  // Confirm existence of HKCR\.ext\shell\open\command.
+  LSTATUS ret = RegOpenKeyExW(HKEY_CLASSES_ROOT,
+                             ext_key,
+                             0,
+                             KEY_QUERY_VALUE,
+                             &key);
+  if (ret == ERROR_SUCCESS) {
+    RegCloseKey(key);
+    result = true;
+    goto cleanup;
+  }
+
+  // Open HKCR\.ext
+  ret = RegOpenKeyExW(HKEY_CLASSES_ROOT, ext, 0, KEY_QUERY_VALUE, &key);
+  if (ret != ERROR_SUCCESS) {
+    goto cleanup;
+  }
+
+  DWORD buf_size = TOTALBYTES;
+  prog_id = (BYTE*)xmalloc(buf_size);
+  DWORD type;
+  DWORD cbdata = buf_size;
+  // Get default value of HKCR\.ext(prog_id).
+  ret = RegQueryValueExW(key, NULL, NULL, &type, prog_id, &cbdata);
+  while (ret == ERROR_MORE_DATA) {
+    buf_size += BYTEINCREMENT;
+    prog_id = xrealloc(prog_id, buf_size);
+    ret = RegQueryValueExW(key, NULL, NULL, &type, prog_id, &cbdata);
+  }
+  if (ret != ERROR_SUCCESS) {
+    goto cleanup;
+  }
+  RegCloseKey(key);
+  if (type != REG_SZ) {
+    goto cleanup;
+  }
+
+  len = wcslen(SOC_KEY) * sizeof(wchar_t) + cbdata;
+  prog_id_key = (wchar_t*)xmalloc(len);
+  _snwprintf(prog_id_key, len, L"%s%s", (wchar_t*)prog_id, SOC_KEY);
+  // Open HKCR\prog_id\shell\open\command.
+  ret = RegOpenKeyExW(HKEY_CLASSES_ROOT, prog_id_key, 0, KEY_QUERY_VALUE, &key);
+  if (ret == ERROR_SUCCESS) {
+    RegCloseKey(key);
+    result = true;
+  }
+
+cleanup:
+  xfree(ext);
+  xfree(prog_id);
+  xfree(prog_id_key);
+  return result;
 }
 #endif
 
