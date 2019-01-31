@@ -29,8 +29,8 @@
 
 #ifdef WIN32
 #include "nvim/mbyte.h"  // for utf8_to_utf16, utf16_to_utf8
-#define WIN8_KEY               L"\\Software\\Microsoft\\Windows\\Roaming\\OpenWith\\FileExts\\"
-#define VISTA_WIN7_KEY         L"\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\"
+#define WIN8_KEY               L"Software\\Microsoft\\Windows\\Roaming\\OpenWith\\FileExts\\"
+#define VISTA_WIN7_KEY         L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\"
 #define USER_CHOICE_KEY        L"\\UserChoice"
 #define SHELL_OPEN_COMMAND_KEY L"\\shell\\open\\command"
 #define TOTALBYTES    8192
@@ -358,6 +358,8 @@ static bool is_extension_executable(const char *name)
   bool result = false;
   wchar_t *ext_key = NULL;
   wchar_t *prog_id_key = NULL;
+  wchar_t *buf = NULL;
+  char *command = NULL;
   reg_data_t reg = { NULL, REG_NONE };
 
   HKEY key;
@@ -370,82 +372,84 @@ static bool is_extension_executable(const char *name)
                               0,
                               KEY_QUERY_VALUE,
                               &key);
-  if (ret != ERROR_SUCCESS) {
-    len = wcslen(VISTA_WIN7_KEY) + wcslen(ext) + wcslen(USER_CHOICE_KEY) + 1;
-    ext_key = xrealloc(ext_key, len);
-    _snwprintf(ext_key, len, L"%s%s%s", WIN8_KEY, ext, USER_CHOICE_KEY);
-    // Try HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.ext\UserChoice
-    ret = RegOpenKeyExW(HKEY_CURRENT_USER,
-        ext_key,
-        0,
-        KEY_QUERY_VALUE,
-        &key);
-  }
   if (ret == ERROR_SUCCESS) {
-    if (get_value(key, L"Progid", &reg)) {
-      if ((reg.type == REG_SZ || reg.type == REG_EXPAND_SZ) &&
-          wcslen((wchar_t*)reg.data) != 0) {
-        RegCloseKey(key);
-        result = true;
-        goto progid;
-      }
+    if (get_value(key, L"Progid", &reg) &&
+        (reg.type == REG_SZ || reg.type == REG_EXPAND_SZ) &&
+        wcslen((wchar_t*)reg.data) != 0) {
       RegCloseKey(key);
-      xfree(reg.data);
-      reg.data = NULL;
-      reg.type = REG_NONE;
+      goto progid;
+    }
+    RegCloseKey(key);
+    xfree(reg.data);
+    reg.data = NULL;
+    reg.type = REG_NONE;
+  }
+
+  len = wcslen(VISTA_WIN7_KEY) + wcslen(ext) + wcslen(USER_CHOICE_KEY) + 1;
+  ext_key = xrealloc(ext_key, len);
+  _snwprintf(ext_key, len, L"%s%s%s", VISTA_WIN7_KEY, ext, USER_CHOICE_KEY);
+  // Try HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.ext\UserChoice
+  ret = RegOpenKeyExW(HKEY_CURRENT_USER,
+      ext_key,
+      0,
+      KEY_QUERY_VALUE,
+      &key);
+  if (ret == ERROR_SUCCESS) {
+    if (get_value(key, L"Progid", &reg)  &&
+        (reg.type == REG_SZ || reg.type == REG_EXPAND_SZ) &&
+        wcslen((wchar_t*)reg.data) != 0) {
+      RegCloseKey(key);
+      goto progid;
+    }
+    RegCloseKey(key);
+    xfree(reg.data);
+    reg.data = NULL;
+    reg.type = REG_NONE;
+  }
+
+  // Try HKCR\.ext
+  ret = RegOpenKeyExW(HKEY_CLASSES_ROOT, ext, 0, KEY_QUERY_VALUE, &key);
+  if (ret == ERROR_SUCCESS) {
+    if (get_value(key, NULL, &reg)  &&
+        (reg.type == REG_SZ || reg.type == REG_EXPAND_SZ) &&
+        wcslen((wchar_t*)reg.data) != 0) {
+      // Progid found in defalut value of HKCR\.ext.
+      RegCloseKey(key);  // Close HKCR\.ext.
+      goto progid;
+    } else {
+      RegCloseKey(key);  // Close HKCR\.ext.
+      // Try HKCR\.ext\OpenWithProgids.
+      _snwprintf(ext_key, len, L"%s\\%s", ext, L"OpneWithProgIds");
+      ret = RegOpenKeyExW(HKEY_CLASSES_ROOT,
+          ext_key,
+          0,
+          KEY_QUERY_VALUE,
+          &key);
+      if (ret == ERROR_SUCCESS) {
+        if (get_value(key, L"ProgId", &reg) &&
+            (reg.type == REG_SZ || reg.type == REG_EXPAND_SZ) &&
+            wcslen((wchar_t*)reg.data) != 0) {
+          // Progid found in HKCR\.ext\OpenWithProgids\ProgId.
+          RegCloseKey(key);  // Close HKCR\.ext\OpenWithProgids.
+          goto progid;
+        }
+        RegCloseKey(key);  // Close HKCR\.ext\OpenWithProgids.
+        xfree(reg.data);
+        reg.data = NULL;
+        reg.type = REG_SZ;
+      }
+      // Search for HKCR\.ext\shell\open\command because progid was not found.
+      len = wcslen(ext) + 1;
+      reg.data = (BYTE*)xmalloc(sizeof(wchar_t) * len);
+      reg.type = REG_SZ;
+      _snwprintf((wchar_t*)reg.data, len, L"%s", ext);
+      goto progid;
     }
   }
 
-  // Open HKCR\.ext
-  ret = RegOpenKeyExW(HKEY_CLASSES_ROOT, ext, 0, KEY_QUERY_VALUE, &key);
-  if (ret == ERROR_SUCCESS) {
-    if (get_value(key, NULL, &reg)) {
-      if ((reg.type == REG_SZ || reg.type == REG_EXPAND_SZ) &&
-          wcslen((wchar_t*)reg.data) != 0) {
-        RegCloseKey(key);
-        result = true;
-        goto progid;
-      } else {
-        RegCloseKey(key);
-        xfree(reg.data);
-        reg.data = NULL;
-        reg.type = REG_NONE;
-        _snwprintf(ext_key, len, L"%s\\%s", ext, L"OpneWithProgIds");
-        ret = RegOpenKeyExW(HKEY_CLASSES_ROOT,
-            ext_key,
-            0,
-            KEY_QUERY_VALUE,
-            &key);
-        if (ret == ERROR_SUCCESS) {
-          if (get_value(key, L"ProgId", &reg)) {
-            if ((reg.type == REG_SZ || reg.type == REG_EXPAND_SZ) &&
-                wcslen((wchar_t*)reg.data) != 0) {
-              RegCloseKey(key);
-              result = true;
-              goto progid;
-            } else {
-              xfree(reg.data);
-              reg.data = NULL;
-              reg.type = REG_SZ;
-            }
-          }
-          RegCloseKey(key);
-        }
-      }
-    } else {
-      RegCloseKey(key);
-    }
-    len = wcslen(ext) + 1;
-    reg.data = (BYTE*)xmalloc(sizeof(wchar_t) * len);
-    reg.type = REG_SZ;
-    _snwprintf((wchar_t*)reg.data, len, L"%s", ext);
-    result = true;
-    goto progid;
-  } else {
-    // Not found HKCR\.ext
-    result = false;
-    goto cleanup;
-  }
+  // Not found HKCR\.ext
+  result = false;
+  goto cleanup;
 
 progid:
   len = wcslen((wchar_t*)reg.data) + wcslen(SHELL_OPEN_COMMAND_KEY) + 1;
@@ -463,27 +467,62 @@ progid:
     if (get_value(key, NULL, &reg) &&
         (reg.type == REG_SZ || reg.type == REG_EXPAND_SZ) &&
         wcslen((wchar_t*)reg.data) != 0) {
-      char *command;
-      char_u *abspath = NULL;
-      if (utf16_to_utf8((wchar_t*)reg.data, &command)) {
-        if (is_executable(command, &abspath)) {
-          result = true;
-        } else {
-          result = false;
-        }
-        xfree(command);
+      if (wcsstr((wchar_t*)reg.data, L"%1") == (wchar_t*)reg.data ||
+          wcsstr((wchar_t*)reg.data, L"\"%1\"") == (wchar_t*)reg.data) {
+        RegCloseKey(key);  // Close progid\shell\open\command.
+        result = true;
+        goto cleanup;
       }
-    } else {
-      result = false;
+      char_u *abspath = NULL;
+      DWORD buf_size = MAX_PATH;
+      buf = (wchar_t*)xmalloc(sizeof(wchar_t) * buf_size);
+      buf_size = ExpandEnvironmentStringsW((wchar_t*)reg.data, buf, buf_size);
+      if (buf_size > MAX_PATH) {
+        buf = xrealloc(buf, buf_size * sizeof(wchar_t));
+        buf_size = ExpandEnvironmentStringsW((wchar_t*)reg.data, buf, buf_size);
+      }
+      if (buf_size) {
+        wchar_t *start = buf;
+        wchar_t *cur_pos;
+        if (*buf == L'"') {
+          start++;
+          cur_pos = start;
+          while (*cur_pos != L'\0') {
+            if (*cur_pos == L'"') {
+               *cur_pos = L'\0';
+               break;
+            }
+            cur_pos++;
+          }
+        } else {
+          cur_pos = start;
+          while (*cur_pos != L'\0') {
+            if (*cur_pos == L' ') {
+              *cur_pos = L'\0';
+              break;
+            }
+            cur_pos++;
+          }
+        }
+        if (!utf16_to_utf8(start, &command)) {
+          if (is_executable(command, &abspath)) {
+            RegCloseKey(key);  // Close progid\shell\open\command.
+            result = true;
+            goto cleanup;
+          }
+        }
+      }
     }
-    RegCloseKey(key);
-  } else {
-    result = false;
+    RegCloseKey(key);  // Close progid\shell\open\command.
   }
+  result = false;
 cleanup:
   xfree(ext);
   xfree(ext_key);
   xfree(prog_id_key);
+  xfree(buf);
+  xfree(command);
+  xfree(reg.data);
   return result;
 }
 #endif
