@@ -29,9 +29,16 @@
 
 #ifdef WIN32
 #include "nvim/mbyte.h"  // for utf8_to_utf16, utf16_to_utf8
-#define SOC_KEY L"\\shell\\open\\command"
+#define WIN8_KEY               L"\\Software\\Microsoft\\Windows\\Roaming\\OpenWith\\FileExts\\"
+#define VISTA_WIN7_KEY         L"\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\"
+#define USER_CHOICE_KEY        L"\\UserChoice"
+#define SHELL_OPEN_COMMAND_KEY L"\\shell\\open\\command"
 #define TOTALBYTES    8192
 #define BYTEINCREMENT 4096
+typedef struct reg_data {
+  BYTE *data;
+  DWORD type;
+} reg_data_t;
 #endif
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
@@ -285,6 +292,27 @@ static const char *get_pathext(void)
   return pathext;
 }
 
+static bool get_value(HKEY key, const wchar_t *name, reg_data_t *reg)
+{
+  DWORD buf_size = TOTALBYTES;
+  BYTE *data = (BYTE*)xmalloc(buf_size);
+  DWORD type;
+  DWORD cbdata = buf_size;
+  LSTATUS ret = RegQueryValueExW(key, name, NULL, &type, data, &cbdata);
+  while (ret == ERROR_MORE_DATA) {
+    buf_size += BYTEINCREMENT;
+    data = xrealloc(data, buf_size);
+    ret = RegQueryValueExW(key, name, NULL, &type, data, &cbdata);
+  }
+  if (ret == ERROR_SUCCESS) {
+    reg->data = data;
+    reg->type = type;
+    return true;
+  }
+  xfree(data);
+  return false;
+}
+
 /// Returns true if extension of `name` is executable file exteinsion.
 static bool is_extension_executable(const char *name)
   FUNC_ATTR_NONNULL_ALL
@@ -329,63 +357,132 @@ static bool is_extension_executable(const char *name)
 
   bool result = false;
   wchar_t *ext_key = NULL;
-  BYTE *prog_id = NULL;
   wchar_t *prog_id_key = NULL;
+  reg_data_t reg = { NULL, REG_NONE };
 
-  size_t len = wcslen(SOC_KEY) + wcslen(ext) + 1;
-  ext_key = (wchar_t*)xmalloc(sizeof(wchar_t) * len);
-  _snwprintf(ext_key, len, L"%s%s", ext, SOC_KEY);
   HKEY key;
-  // Confirm existence of HKCR\.ext\shell\open\command.
-  LSTATUS ret = RegOpenKeyExW(HKEY_CLASSES_ROOT,
-                             ext_key,
-                             0,
-                             KEY_QUERY_VALUE,
-                             &key);
+  size_t len = wcslen(WIN8_KEY) + wcslen(ext) + wcslen(USER_CHOICE_KEY) + 1;
+  ext_key = (wchar_t*)xmalloc(sizeof(wchar_t) * len);
+  _snwprintf(ext_key, len, L"%s%s%s", WIN8_KEY, ext, USER_CHOICE_KEY);
+  // Try HKCU\Software\Microsoft\Windows\Roaming\OpenWith\FileExts\.ext\UserChoice
+  LSTATUS ret = RegOpenKeyExW(HKEY_CURRENT_USER,
+                              ext_key,
+                              0,
+                              KEY_QUERY_VALUE,
+                              &key);
+  if (ret != ERROR_SUCCESS) {
+    len = wcslen(VISTA_WIN7_KEY) + wcslen(ext) + wcslen(USER_CHOICE_KEY) + 1;
+    ext_key = xrealloc(ext_key, len);
+    _snwprintf(ext_key, len, L"%s%s%s", WIN8_KEY, ext, USER_CHOICE_KEY);
+    // Try HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.ext\UserChoice
+    ret = RegOpenKeyExW(HKEY_CURRENT_USER,
+        ext_key,
+        0,
+        KEY_QUERY_VALUE,
+        &key);
+  }
   if (ret == ERROR_SUCCESS) {
-    RegCloseKey(key);
-    result = true;
-    goto cleanup;
+    if (get_value(key, L"Progid", &reg)) {
+      if ((reg.type == REG_SZ || reg.type == REG_EXPAND_SZ) &&
+          wcslen((wchar_t*)reg.data) != 0) {
+        RegCloseKey(key);
+        result = true;
+        goto progid;
+      }
+      RegCloseKey(key);
+      xfree(reg.data);
+      reg.data = NULL;
+      reg.type = REG_NONE;
+    }
   }
 
   // Open HKCR\.ext
   ret = RegOpenKeyExW(HKEY_CLASSES_ROOT, ext, 0, KEY_QUERY_VALUE, &key);
-  if (ret != ERROR_SUCCESS) {
-    goto cleanup;
-  }
-
-  DWORD buf_size = TOTALBYTES;
-  prog_id = (BYTE*)xmalloc(buf_size);
-  DWORD type;
-  DWORD cbdata = buf_size;
-  // Get default value of HKCR\.ext(prog_id).
-  ret = RegQueryValueExW(key, NULL, NULL, &type, prog_id, &cbdata);
-  while (ret == ERROR_MORE_DATA) {
-    buf_size += BYTEINCREMENT;
-    prog_id = xrealloc(prog_id, buf_size);
-    ret = RegQueryValueExW(key, NULL, NULL, &type, prog_id, &cbdata);
-  }
-  if (ret != ERROR_SUCCESS) {
-    goto cleanup;
-  }
-  RegCloseKey(key);
-  if (type != REG_SZ) {
-    goto cleanup;
-  }
-
-  len = wcslen(SOC_KEY) * sizeof(wchar_t) + cbdata;
-  prog_id_key = (wchar_t*)xmalloc(len);
-  _snwprintf(prog_id_key, len, L"%s%s", (wchar_t*)prog_id, SOC_KEY);
-  // Open HKCR\prog_id\shell\open\command.
-  ret = RegOpenKeyExW(HKEY_CLASSES_ROOT, prog_id_key, 0, KEY_QUERY_VALUE, &key);
   if (ret == ERROR_SUCCESS) {
-    RegCloseKey(key);
+    if (get_value(key, NULL, &reg)) {
+      if ((reg.type == REG_SZ || reg.type == REG_EXPAND_SZ) &&
+          wcslen((wchar_t*)reg.data) != 0) {
+        RegCloseKey(key);
+        result = true;
+        goto progid;
+      } else {
+        RegCloseKey(key);
+        xfree(reg.data);
+        reg.data = NULL;
+        reg.type = REG_NONE;
+        _snwprintf(ext_key, len, L"%s\\%s", ext, L"OpneWithProgIds");
+        ret = RegOpenKeyExW(HKEY_CLASSES_ROOT,
+            ext_key,
+            0,
+            KEY_QUERY_VALUE,
+            &key);
+        if (ret == ERROR_SUCCESS) {
+          if (get_value(key, L"ProgId", &reg)) {
+            if ((reg.type == REG_SZ || reg.type == REG_EXPAND_SZ) &&
+                wcslen((wchar_t*)reg.data) != 0) {
+              RegCloseKey(key);
+              result = true;
+              goto progid;
+            } else {
+              xfree(reg.data);
+              reg.data = NULL;
+              reg.type = REG_SZ;
+            }
+          }
+          RegCloseKey(key);
+        }
+      }
+    } else {
+      RegCloseKey(key);
+    }
+    len = wcslen(ext) + 1;
+    reg.data = (BYTE*)xmalloc(sizeof(wchar_t) * len);
+    reg.type = REG_SZ;
+    _snwprintf((wchar_t*)reg.data, len, L"%s", ext);
     result = true;
+    goto progid;
+  } else {
+    // Not found HKCR\.ext
+    result = false;
+    goto cleanup;
   }
 
+progid:
+  len = wcslen((wchar_t*)reg.data) + wcslen(SHELL_OPEN_COMMAND_KEY) + 1;
+  prog_id_key = (wchar_t*)xmalloc(sizeof(wchar_t) * len);
+  _snwprintf(prog_id_key, len, L"%s%s", (wchar_t*)reg.data, SHELL_OPEN_COMMAND_KEY);
+  ret = RegOpenKeyExW(HKEY_CLASSES_ROOT,
+                      prog_id_key,
+                      0,
+                      KEY_QUERY_VALUE,
+                      &key);
+  if (ret == ERROR_SUCCESS) {
+    xfree(reg.data);
+    reg.data = NULL;
+    reg.type = REG_NONE;
+    if (get_value(key, NULL, &reg) &&
+        (reg.type == REG_SZ || reg.type == REG_EXPAND_SZ) &&
+        wcslen((wchar_t*)reg.data) != 0) {
+      char *command;
+      char_u *abspath = NULL;
+      if (utf16_to_utf8((wchar_t*)reg.data, &command)) {
+        if (is_executable(command, &abspath)) {
+          result = true;
+        } else {
+          result = false;
+        }
+        xfree(command);
+      }
+    } else {
+      result = false;
+    }
+    RegCloseKey(key);
+  } else {
+    result = false;
+  }
 cleanup:
   xfree(ext);
-  xfree(prog_id);
+  xfree(ext_key);
   xfree(prog_id_key);
   return result;
 }
