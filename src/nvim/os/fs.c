@@ -17,6 +17,10 @@
 
 #include <uv.h>
 
+#ifdef WIN32
+# include <shlwapi.h>
+#endif
+
 #include "nvim/os/os.h"
 #include "nvim/os/os_defs.h"
 #include "nvim/ascii.h"
@@ -302,7 +306,6 @@ static bool is_extension_executable(const char *name)
     return true;
   }
 
-  const char *pathext = get_pathext();
   const char *ext_pos = name + STRLEN(name) - 1;
   while (name != ext_pos) {
     if (*ext_pos == '\\' || *ext_pos == '/') {
@@ -315,28 +318,45 @@ static bool is_extension_executable(const char *name)
     ext_pos--;
   }
 
-  const char *cur_pos = pathext;
-  while (true) {
-    // Don't check extension, if $PATHEXT contain dot itself.
-    if (*cur_pos == '.'
-        && (*(cur_pos + 1) == ENV_SEPCHAR || *(cur_pos + 1) == NUL)) {
-      return true;
-    }
-    const char *ext_end = strchr(cur_pos, ENV_SEPCHAR);
-    size_t ext_len = ext_end ?
-      (size_t)(ext_end - cur_pos) :
-      (STRLEN(pathext) - (size_t)(cur_pos - pathext));
-    if (ext_pos != name && mb_strnicmp((const char_u *)ext_pos,
-                                       (const char_u *)cur_pos, ext_len) == 0) {
-      return true;
-    }
-    if (ext_end == NULL) {
-      break;
-    } else {
-      cur_pos = ++ext_end;
+  // File has no extension.
+  if (ext_pos == name) {
+    return false;
+  }
+
+  wchar_t *ext = NULL;
+  wchar_t *buf = NULL;
+  char *command = NULL;
+  char_u *abspath = NULL;
+  bool result = false;
+  if (!utf8_to_utf16(ext_pos, &ext)) {
+    DWORD buf_size;
+    HRESULT hresult = AssocQueryStringW(ASSOCF_NOTRUNCATE,
+                                        ASSOCSTR_EXECUTABLE,
+                                        ext,
+                                        L"open",
+                                        NULL,
+                                        &buf_size);
+    if (hresult == S_FALSE) {
+      buf = (wchar_t *)xmalloc(sizeof(wchar_t) * buf_size);
+      hresult = AssocQueryStringW(ASSOCF_NOTRUNCATE,
+                                  ASSOCSTR_EXECUTABLE,
+                                  ext,
+                                  L"open",
+                                  buf,
+                                  &buf_size);
+      if (hresult == S_OK) {
+        if (!utf16_to_utf8(buf, &command)
+            && (wcsstr(buf, L"%1")  == buf || wcsstr(buf, L"\"%1\"") == buf
+                || is_executable(command, &abspath))) {
+          result = true;
+        }
+      }
     }
   }
-  return false;
+  xfree(ext);
+  xfree(buf);
+  xfree(command);
+  return result;
 }
 #endif
 

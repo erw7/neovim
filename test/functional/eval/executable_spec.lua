@@ -182,11 +182,6 @@ describe('executable() (Windows)', function()
     eq(1, call('executable', './test_executable_zzz.zzz'))
   end)
 
-  it('ignore case of extension', function()
-    clear({env={PATHEXT='.ZZZ'}})
-    eq(1, call('executable', 'test_executable_zzz.zzz'))
-  end)
-
   it('file is not found by relative path from $PATH', function()
     clear({env={PATHEXT=''}})
     eq(0, call('executable', './System32/notepad.exe'))
