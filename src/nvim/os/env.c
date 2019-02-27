@@ -93,22 +93,61 @@ int os_unsetenv(const char *name)
 #endif
 }
 
-char *os_getenvname_at_index(size_t index)
+char **os_getfullenv(void)
 {
+#ifdef WIN32
+  size_t env_size = 0;
+  for (wchar_t **wenv = _wenviron; *wenv; wenv++) {
+    env_size++;
+  }
+  char **env = (char **)xmalloc(sizeof(*env) * (env_size + 1));
+  for (size_t i = 0; i < env_size; i++) {
+    int conversion_result = utf16_to_utf8(_wenviron[i], &env[i]);
+    if (conversion_result != 0) {
+      EMSG2("utf16_to_utf8 failed: %d", conversion_result);
+      env_size--;
+    }
+  }
+  env[env_size] = NULL;
+  return env;
+#else
 # if defined(HAVE__NSGETENVIRON)
   char **environ = *_NSGetEnviron();
 # elif !defined(__WIN32__)
   // Borland C++ 5.2 has this in a header file.
   extern char         **environ;
 # endif
+  return environ;
+#endif
+}
+
+#ifdef WIN32
+void os_release_fullenv(char **env)
+{
+  for (char **it = env; *it; it++) {
+    xfree(*it);
+  }
+  xfree(env);
+}
+#endif
+
+char *os_getenvname_at_index(size_t index)
+{
+  char **env = os_getfullenv();
   // check if index is inside the environ array
   for (size_t i = 0; i < index; i++) {
-    if (environ[i] == NULL) {
+    if (env[i] == NULL) {
+#ifdef WIN32
+      os_release_fullenv(env);
+#endif
       return NULL;
     }
   }
-  char *str = environ[index];
+  char *str = env[index];
   if (str == NULL) {
+#ifdef WIN32
+    os_release_fullenv(env);
+#endif
     return NULL;
   }
   size_t namesize = 0;
@@ -116,6 +155,9 @@ char *os_getenvname_at_index(size_t index)
     namesize++;
   }
   char *name = (char *)vim_strnsave((char_u *)str, namesize);
+#ifdef WIN32
+ os_release_fullenv(env);
+#endif
   return name;
 }
 
