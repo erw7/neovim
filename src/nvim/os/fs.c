@@ -272,17 +272,11 @@ static bool is_executable(const char *name, char **abspath)
     return false;
   }
 
-#ifdef WIN32
-  // Windows does not have exec bit; just check if the file exists and is not
-  // a directory.
-  const bool ok = S_ISREG(mode);
-#else
   int r = -1;
   if (S_ISREG(mode)) {
     RUN_UV_FS_FUNC(r, uv_fs_access, name, X_OK, NULL);
   }
   const bool ok = (r == 0);
-#endif
   if (ok && abspath != NULL) {
     *abspath = save_abs_path(name);
   }
