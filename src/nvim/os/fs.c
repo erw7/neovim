@@ -17,6 +17,10 @@
 
 #include <uv.h>
 
+#ifdef WIN32
+# include <shlwapi.h>
+#endif
+
 #include "nvim/os/os.h"
 #include "nvim/os/os_defs.h"
 #include "nvim/ascii.h"
@@ -254,12 +258,10 @@ bool os_can_exe(const char_u *name, char_u **abspath, bool use_path)
 
   if (no_path) {
 #ifdef WIN32
-    const char *pathext = os_getenv("PATHEXT");
-    if (!pathext) {
-      pathext = ".com;.exe;.bat;.cmd";
-    }
-    bool ok = is_executable((char *)name, abspath)
-              || is_executable_ext((char *)name, pathext, abspath);
+    const char *pathext = get_pathext();
+    if ((is_extension_executable((char *)name)
+         && is_executable((char *)name, abspath))
+        || is_executable_ext((char *)name, pathext, abspath)) {
 #else
     // Must have path separator, cannot execute files in the current directory.
     if ((const char_u *)gettail_dir((const char *)name) != name
@@ -273,6 +275,90 @@ bool os_can_exe(const char_u *name, char_u **abspath, bool use_path)
 
   return is_executable_in_path(name, abspath);
 }
+
+#ifdef WIN32
+static const char *get_pathext(void)
+{
+  const char *pathext = os_getenv("PATHEXT");
+  if (!pathext) {
+    pathext = ".com;.exe;.bat;.cmd";
+  }
+  return pathext;
+}
+
+/// Returns true if extension of `name` is executable file exteinsion.
+static bool is_extension_executable(const char *name)
+  FUNC_ATTR_NONNULL_ALL
+{
+  // Don't check extensions, when a Unix-shell like 'shell'.
+  const char_u *shell_end = p_sh + STRLEN(p_sh);
+  while (true) {
+    if (*shell_end == '.') {
+      break;
+    } else if (shell_end == p_sh
+               || (*shell_end == '/' || *shell_end == '\\')) {
+      shell_end = p_sh + STRLEN(p_sh);
+      break;
+    }
+    shell_end--;
+  }
+  if (mb_strnicmp(shell_end - 2, (const char_u  *)"sh", 2) == 0) {
+    return true;
+  }
+
+  const char *ext_pos = name + STRLEN(name) - 1;
+  while (name != ext_pos) {
+    if (*ext_pos == '\\' || *ext_pos == '/') {
+      ext_pos = name;
+      break;
+    }
+    if (*ext_pos == '.') {
+      break;
+    }
+    ext_pos--;
+  }
+
+  // File has no extension.
+  if (ext_pos == name) {
+    return false;
+  }
+
+  wchar_t *ext = NULL;
+  wchar_t *buf = NULL;
+  char *command = NULL;
+  char_u *abspath = NULL;
+  bool result = false;
+  if (!utf8_to_utf16(ext_pos, &ext)) {
+    DWORD buf_size;
+    HRESULT hresult = AssocQueryStringW(ASSOCF_NOTRUNCATE,
+                                        ASSOCSTR_EXECUTABLE,
+                                        ext,
+                                        L"open",
+                                        NULL,
+                                        &buf_size);
+    if (hresult == S_FALSE) {
+      buf = (wchar_t *)xmalloc(sizeof(wchar_t) * buf_size);
+      hresult = AssocQueryStringW(ASSOCF_NOTRUNCATE,
+                                  ASSOCSTR_EXECUTABLE,
+                                  ext,
+                                  L"open",
+                                  buf,
+                                  &buf_size);
+      if (hresult == S_OK) {
+        if (!utf16_to_utf8(buf, &command)
+            && (wcsstr(buf, L"%1")  == buf || wcsstr(buf, L"\"%1\"") == buf
+                || is_executable(command, &abspath))) {
+          result = true;
+        }
+      }
+    }
+  }
+  xfree(ext);
+  xfree(buf);
+  xfree(command);
+  return result;
+}
+#endif
 
 /// Returns true if `name` is an executable file.
 static bool is_executable(const char *name, char_u **abspath)
@@ -361,10 +447,7 @@ static bool is_executable_in_path(const char_u *name, char_u **abspath)
   size_t buf_len = STRLEN(name) + strlen(path) + 2;
 
 #ifdef WIN32
-  const char *pathext = os_getenv("PATHEXT");
-  if (!pathext) {
-    pathext = ".com;.exe;.bat;.cmd";
-  }
+  const char *pathext = get_pathext();
   buf_len += strlen(pathext);
 #endif
 
@@ -382,7 +465,8 @@ static bool is_executable_in_path(const char_u *name, char_u **abspath)
     append_path(buf, (char *)name, buf_len);
 
 #ifdef WIN32
-    bool ok = is_executable(buf, abspath)
+    bool ok = (is_extension_executable(buf)
+               && is_executable(buf), abspath)
               || is_executable_ext(buf, pathext, abspath);
 #else
     if (is_executable(buf, abspath)) {

@@ -379,6 +379,7 @@ endif()
 
 if(WIN32)
   list(APPEND NVIM_LINK_LIBRARIES ${WINPTY_LIBRARIES})
+  list(APPEND NVIM_LINK_LIBRARIES shlwapi)
 endif()
 
 # Put these last on the link line, since multiple things may depend on them.
