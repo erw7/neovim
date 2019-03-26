@@ -19,7 +19,6 @@
 
 #ifdef WIN32
 # include <shlwapi.h>
-# include <aclapi.h>
 #endif
 
 #include "nvim/os/os.h"
@@ -38,10 +37,6 @@
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "os/fs.c.generated.h"
-#endif
-
-#if defined(WIN32) && !defined(UNLEN)
-# define UNLEN 256
 #endif
 
 #define RUN_UV_FS_FUNC(ret, func, ...) \
@@ -378,38 +373,7 @@ static bool is_executable(const char *name, char_u **abspath)
 #ifdef WIN32
   // Windows does not have exec bit; just check if the file exists and is not
   // a directory.
-  bool ok = S_ISREG(mode);
-  if (ok) {
-    wchar_t *filename = NULL;
-    ok = false;
-    if (!utf8_to_utf16(name, &filename)) {
-      PACL p_dacl;
-      PSECURITY_DESCRIPTOR p_security_descriptor;
-      TRUSTEE_W trustee;
-      ACCESS_MASK access_mask;
-      if (GetNamedSecurityInfoW(filename,
-                                SE_FILE_OBJECT,
-                                DACL_SECURITY_INFORMATION,
-                                NULL,
-                                NULL,
-                                &p_dacl,
-                                NULL,
-                                &p_security_descriptor) == ERROR_SUCCESS) {
-        wchar_t user_name[UNLEN + 1];
-        DWORD size = ARRAY_SIZE(user_name);
-        if (GetUserNameW(user_name, &size)) {
-          BuildTrusteeWithNameW(&trustee, user_name);
-          if (GetEffectiveRightsFromAclW(p_dacl, &trustee, &access_mask)
-              == ERROR_SUCCESS) {
-            if (access_mask & FILE_EXECUTE) {
-              ok = true;
-            }
-          }
-        }
-      }
-      xfree(filename);
-    }
-  }
+  const bool ok = S_ISREG(mode);
 #else
   bool ok = S_ISREG(mode) && (S_IXUSR & mode);
 #endif
