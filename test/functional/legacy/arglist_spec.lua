@@ -3,6 +3,7 @@
 local helpers = require('test.functional.helpers')(after_each)
 local clear, command, eq = helpers.clear, helpers.command, helpers.eq
 local eval, exc_exec, neq = helpers.eval, helpers.exc_exec, helpers.neq
+local feed_command = helpers.feed_command
 
 describe('argument list commands', function()
   before_each(clear)
@@ -114,9 +115,9 @@ describe('argument list commands', function()
 
     eq({'d', 'c', 'b', 'a', 'c'}, eval('g:buffers'))
 
-    command('redir => result')
-    command('ar')
-    command('redir END')
+    feed_command('redir => result')
+    feed_command('ar')
+    feed_command('redir END')
     eq(1, eval([[result =~# 'a b \[c] d']]))
 
     command('.argd')
