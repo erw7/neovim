@@ -37,6 +37,11 @@ env:
                    -DDEPS_PREFIX=$DEPS_BUILD_DIR/usr
                    -DMIN_LOG_LEVEL=3"
     - DEPS_CMAKE_FLAGS="-DUSE_BUNDLED_GPERF=OFF"
+    # Additional CMake flags for 32-bit builds.
+    - CMAKE_FLAGS_32BIT="-DCMAKE_SYSTEM_LIBRARY_PATH=/lib32:/usr/lib32:/usr/local/lib32
+                         -DCMAKE_IGNORE_PATH=/lib:/usr/lib:/usr/local/lib
+                         -DCMAKE_TOOLCHAIN_FILE=$TRAVIS_BUILD_DIR/cmake/i386-linux-gnu.toolchain.cmake
+                         -DENABLE_LIBACL=OFF"
     # Environment variables for Clang sanitizers.
     - ASAN_OPTIONS="detect_leaks=1:check_initialization_order=1:log_path=$LOG_DIR/asan"
     - TSAN_OPTIONS="log_path=$LOG_DIR/tsan"
@@ -78,7 +83,6 @@ addons:
       - gperf
       - language-pack-tr
       - libacl1-dev
-      - libacl1-i386
       - libc6-dev-i386
       - libtool-bin
       - locales
