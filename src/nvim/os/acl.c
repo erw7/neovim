@@ -50,7 +50,7 @@ vim_acl_T os_get_acl(const char_u *fname)
     ret = (vim_acl_T)xcalloc(1, (unsigned)sizeof(*ret));
     wchar_t *wn = NULL;
 
-    int conversion_result = utf8_to_utf16(fname, &wn);
+    int conversion_result = utf8_to_utf16(fname, -1, &wn);
     if (conversion_result  == 0) {
       // Try to retrieve the entire security descriptor.
       err = GetNamedSecurityInfoW(
@@ -134,7 +134,7 @@ void os_set_acl(const char_u *fname, vim_acl_T aclent)
     sec_info |= SACL_SECURITY_INFORMATION;
   }
 
-  int conversion_result = utf8_to_utf16(fname, &wn);
+  int conversion_result = utf8_to_utf16(fname, -1, &wn);
   if (conversion_result == 0) {
     DWORD err = SetNamedSecurityInfoW(
         wn,  // Abstract filename
