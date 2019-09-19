@@ -562,7 +562,7 @@ describe('ui/ext_wildmenu', function()
       :sign jump^               |
     ]], wildmenu_items=expected, wildmenu_pos=1}
 
-    feed('<left><left>')
+    feed('<C-p><C-p>')
     screen:expect{grid=[[
                                |
       ~                        |
@@ -571,7 +571,7 @@ describe('ui/ext_wildmenu', function()
       :sign ^                   |
     ]], wildmenu_items=expected, wildmenu_pos=-1}
 
-    feed('<right>')
+    feed('<C-n>')
     screen:expect{grid=[[
                                |
       ~                        |
