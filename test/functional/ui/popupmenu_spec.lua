@@ -904,6 +904,18 @@ describe('ui/ext_popupmenu', function()
       :sign ^                          |
       ]]}
       feed("<Esc>")
+      screen:expect{grid=[[
+      ^                                |
+      {1:~                               }|
+      {1:~                               }|
+      {1:~                               }|
+      {1:~                               }|
+      {1:~                               }|
+      {1:~                               }|
+      {1:~                               }|
+      {1:~                               }|
+                                      |
+      ]]}
       display_sign_pum()
       feed('<C-n><C-y>')
       screen:expect{grid=[[
@@ -919,8 +931,20 @@ describe('ui/ext_popupmenu', function()
       :sign jump^                      |
       ]]}
       feed("<Esc>")
-      display_sign_pum()
+      screen:expect{grid=[[
+      ^                                |
+      {1:~                               }|
+      {1:~                               }|
+      {1:~                               }|
+      {1:~                               }|
+      {1:~                               }|
+      {1:~                               }|
+      {1:~                               }|
+      {1:~                               }|
+                                      |
+      ]]}
       -- Selected state, but not insert
+      display_sign_pum()
       feed('<Down><C-y>')
       screen:expect{grid=[[
                                       |
