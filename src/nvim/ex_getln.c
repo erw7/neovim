@@ -1032,11 +1032,12 @@ static int command_line_execute(VimState *state, int key)
     }
   }
 
+  bool need_ctrl_e = false;
   if (s->c == Ctrl_E) {
     nextwild(&s->xpc, WILD_CANCEL, 0, s->firstc != '@');
   } else if (s->c == Ctrl_Y) {
     nextwild(&s->xpc, WILD_APPLY, 0, s->firstc != '@');
-    s->c = Ctrl_E;
+    need_ctrl_e = true;
   }
 
   // Hitting CR after "emenu Name.": complete submenu
@@ -1064,7 +1065,7 @@ static int command_line_execute(VimState *state, int key)
       (void)ExpandOne(&s->xpc, NULL, NULL, 0, WILD_FREE);
     }
     s->did_wild_list = false;
-    if (!p_wmnu || (s->c != K_UP && s->c != K_DOWN)) {
+    if (!p_wmnu || (s->c != K_UP && s->c != K_DOWN && s->c != Ctrl_Y)) {
       s->xpc.xp_context = EXPAND_NOTHING;
     }
     s->wim_index = 0;
@@ -1157,7 +1158,7 @@ static int command_line_execute(VimState *state, int key)
     upseg[3] = PATHSEP;
     upseg[4] = NUL;
 
-    if (s->c == K_DOWN
+    if ((s->c == K_DOWN || s->c == Ctrl_Y)
         && ccline.cmdpos > 0
         && ccline.cmdbuff[ccline.cmdpos - 1] == PATHSEP
         && (ccline.cmdpos < 3
@@ -1236,6 +1237,10 @@ static int command_line_execute(VimState *state, int key)
       s->c = (int)p_wc;
       KeyTyped = true;
     }
+  }
+
+  if (need_ctrl_e && s->c == Ctrl_Y) {
+    s->c = Ctrl_E;
   }
 
   // CTRL-\ CTRL-N goes to Normal mode, CTRL-\ CTRL-G goes to Insert
@@ -2002,6 +2007,12 @@ static int command_line_handle_key(CommandLineState *s)
     ccline.cmdpos = ccline.cmdlen;
     ccline.cmdspos = cmd_screencol(ccline.cmdpos);
     return command_line_not_changed(s);
+
+  case Ctrl_Y:
+    if (s->xpc.xp_numfiles > 0) {
+      return command_line_not_changed(s);
+    }
+    break;
 
   case Ctrl_A:            // all matches
     if (nextwild(&s->xpc, WILD_ALL, 0, s->firstc != '@') == FAIL)
