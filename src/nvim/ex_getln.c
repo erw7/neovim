@@ -1033,11 +1033,13 @@ static int command_line_execute(VimState *state, int key)
   }
 
   bool need_ctrl_e = false;
-  if (s->c == Ctrl_E) {
-    nextwild(&s->xpc, WILD_CANCEL, 0, s->firstc != '@');
-  } else if (s->c == Ctrl_Y) {
-    nextwild(&s->xpc, WILD_APPLY, 0, s->firstc != '@');
-    need_ctrl_e = true;
+  if (s->xpc.xp_numfiles > 0) {
+    if (s->c == Ctrl_E) {
+      nextwild(&s->xpc, WILD_CANCEL, 0, s->firstc != '@');
+    } else if (s->c == Ctrl_Y) {
+      nextwild(&s->xpc, WILD_APPLY, 0, s->firstc != '@');
+      need_ctrl_e = true;
+    }
   }
 
   // Hitting CR after "emenu Name.": complete submenu
