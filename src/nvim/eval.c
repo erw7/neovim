@@ -11091,6 +11091,24 @@ static void dummy_timer_close_cb(TimeWatcher *tw, void *data)
 /// "wait(timeout, condition[, interval])" function
 static void f_wait(typval_T *argvars, typval_T *rettv, FunPtr fptr)
 {
+#define WAIT_UNTIL(loop, multiqueue, timeout, condtion) \
+  do { \
+    if (!(condtion) && timeout != 0) { \
+      int remaining = timeout; \
+      uint64_t before = os_hrtime(); \
+      do { \
+        if (remaining > 0) { \
+          uint64_t now = os_hrtime(); \
+          remaining  -= (int) ((now - before) / 1000000); \
+          before = now; \
+          if (remaining <= 0) { \
+            break; \
+          } \
+        } \
+        LOOP_PROCESS_EVENTS(loop, multiqueue, remaining); \
+      } while (!(condtion)); \
+    } \
+  } while(0)
   rettv->v_type = VAR_NUMBER;
   rettv->vval.v_number = -1;
 
@@ -11123,10 +11141,10 @@ static void f_wait(typval_T *argvars, typval_T *rettv, FunPtr fptr)
   int save_called_emsg = called_emsg;
   called_emsg = false;
 
-  LOOP_PROCESS_EVENTS_UNTIL(&main_loop, main_loop.events, timeout,
-                            eval_expr_typval(&expr, &argv, 0, &exprval) != OK
-                            || tv_get_number_chk(&exprval, &error)
-                            || called_emsg || error || got_int);
+  WAIT_UNTIL(&main_loop, main_loop.events, timeout,
+             eval_expr_typval(&expr, &argv, 0, &exprval) != OK
+             || tv_get_number_chk(&exprval, &error)
+             || called_emsg || error || got_int);
 
   if (called_emsg || error) {
     rettv->vval.v_number = -3;
@@ -11143,6 +11161,7 @@ static void f_wait(typval_T *argvars, typval_T *rettv, FunPtr fptr)
   // Stop dummy timer
   time_watcher_stop(tw);
   time_watcher_close(tw, dummy_timer_close_cb);
+#undef WAIT_UNTIL
 }
 
 // "win_screenpos()" function
