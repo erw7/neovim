@@ -299,6 +299,7 @@ void init_homedir(void)
   homedir = NULL;
 
   const char *var = os_getenv("HOME");
+  bool must_free = false;
 
 #ifdef WIN32
   // Typically, $HOME is not defined on Windows, unless the user has
@@ -341,6 +342,7 @@ void init_homedir(void)
 
   if (var == NULL) {
      var = os_homedir();
+     must_free = true;
   }
 
   // Default home dir is C:/
@@ -348,7 +350,11 @@ void init_homedir(void)
   if (var == NULL
       // Empty means "undefined"
       || *var == NUL) {
+    if (must_free) {
+      xfree(var);
+    }
     var = "C:/";
+    must_free = false;
   }
 #endif
 
@@ -357,6 +363,7 @@ void init_homedir(void)
   // block to resolve links
   if (var == NULL) {
     var = os_homedir();
+    must_free = true;
   }
 
   if (var != NULL) {
@@ -365,7 +372,11 @@ void init_homedir(void)
     // links.  Don't do it when we can't return.
     if (os_dirname((char_u *)os_buf, MAXPATHL) == OK && os_chdir(os_buf) == 0) {
       if (!os_chdir(var) && os_dirname(IObuff, IOSIZE) == OK) {
+        if (must_free) {
+          xfree(var);
+        }
         var = (char *)IObuff;
+        must_free = false;
       }
       if (os_chdir(os_buf) != 0) {
         EMSG(_(e_prev_dir));
@@ -377,9 +388,13 @@ void init_homedir(void)
   // As a last resort, return the current working directory
   if (var == NULL && os_dirname((char_u *)os_buf, MAXPATHL) == OK) {
     var = (char *)os_buf;
+    must_free = false;
   }
 
   set_homedir(var, MAXPATHL);
+  if (must_free) {
+    xfree((void *)var);
+  }
 }
 
 const char *os_homedir(void)
