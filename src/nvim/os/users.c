@@ -17,6 +17,48 @@
 # include <lm.h>
 #endif
 
+# if defined(HAVE_GETPWNAM)
+struct os_passwd {
+  struct passwd pwd;
+  char *buf;
+};
+
+static struct os_passwd *os_getpwnam_r(const char *name)
+{
+  if (name == NULL || *name == NUL) {
+    return NULL;
+  }
+  size_t bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
+  if (bufsize ==  -1) {
+    return NULL;
+  }
+  struct os_passwd *os_pwd = (struct os_passwd *)xmalloc(sizeof(*os_pwd));
+  os_pwd->buf = (char *)xmalloc(bufsize);
+  struct passwd *result;
+retry:
+  int r = getpwnam_r(name, &os_passwd->pwd, os_pwd->buf, bufsize, &result);
+  if (result == NULL) {
+    if (r != ERANGE) {
+      xfree(os_pwd->buf);
+      xfree(os_pwd);
+      return NULL;
+    }
+    bufsize *= 2;
+    os_pwd->buf = (char *)xrealloc(os_pwd->buf, bufsize);
+    goto retry;
+  }
+  return os_pwd;
+}
+
+static void os_free_passwd(struct os_passwd *os_pwd)
+{
+  if (os_pwd != NULL) {
+    xfree(os_pwd->buf);
+    xfree(os_pwd);
+  }
+}
+#endif
+
 // Add a user name to the list of users in garray_T *users.
 // Do nothing if user name is NULL or empty.
 static void add_user(garray_T *users, char *user, bool need_copy)
@@ -94,11 +136,12 @@ int os_get_usernames(garray_T *users)
         }
       }
 
-      if (i == users->ga_len) {
-        struct passwd *pw = getpwnam(user_env);  // NOLINT
+      if (i == users.ga_len) {
+        struct os_passwd *pw = os_getpwnam_r(user_env);
 
         if (pw != NULL) {
-          add_user(users, pw->pw_name, true);
+          add_user(pw->pwd->pw_name, true);
+          os_free_passwd(pw);
         }
       }
     }
@@ -147,10 +190,12 @@ char *os_get_user_directory(const char *name)
   if (name == NULL || *name == NUL) {
     return NULL;
   }
-  struct passwd *pw = getpwnam(name);  // NOLINT(runtime/threadsafe_fn)
+  struct os_passwd *pw = os_getpwnam_r(name);
   if (pw != NULL) {
     // save the string from the static passwd entry into malloced memory
-    return xstrdup(pw->pw_dir);
+    char *result = xstrdup(pw->pwd->pw_dir);
+    os_free_passwd(pw)
+    return result;
   }
 #endif
   return NULL;
