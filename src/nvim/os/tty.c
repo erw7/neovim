@@ -16,7 +16,7 @@
 # if !defined(ENABLE_VIRTUAL_TERMINAL_PROCESSING)
 #  define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
 # endif
-/// Guesses the terminal-type.  Calls SetConsoleMode() and uv_set_vterm_state()
+/// Guesses the terminal-type.  Calls SetConsoleMode() and uv_tty_set_vterm_state()
 /// if appropriate.
 ///
 /// @param[in,out] term Name of the guessed terminal, statically-allocated
@@ -28,7 +28,7 @@ void os_tty_guess_term(const char **term, int out_fd)
   if (winpty) {
     // Force TERM=win32con when running in winpty.
     *term = "win32con";
-    uv_set_vterm_state(UV_UNSUPPORTED);
+    uv_tty_set_vterm_state(UV_TTY_UNSUPPORTED);
     return;
   }
 
@@ -55,7 +55,7 @@ void os_tty_guess_term(const char **term, int out_fd)
   }
 
   if (conemu_ansi) {
-    uv_set_vterm_state(UV_SUPPORTED);
+    uv_tty_set_vterm_state(UV_TTY_SUPPORTED);
   }
 }
 #endif

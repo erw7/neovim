@@ -1017,7 +1017,7 @@ static void tui_mouse_on(UI *ui)
                || terminfo_is_term_family(term, "vtpcon"));
     if (toggle_uv_vterm_state) {
       flush_buf(ui);
-      uv_set_vterm_state(UV_UNSUPPORTED);
+      uv_tty_set_vterm_state(UV_TTY_UNSUPPORTED);
     }
 #endif
     unibi_out_ext(ui, data->unibi_ext.enable_mouse);
@@ -1025,7 +1025,7 @@ static void tui_mouse_on(UI *ui)
 #ifdef WIN32
     if (toggle_uv_vterm_state) {
       flush_buf(ui);
-      uv_set_vterm_state(UV_SUPPORTED);
+      uv_tty_set_vterm_state(UV_TTY_SUPPORTED);
     }
 #endif
   }
@@ -1042,7 +1042,7 @@ static void tui_mouse_off(UI *ui)
                || terminfo_is_term_family(term, "vtpcon"));
     if (toggle_uv_vterm_state) {
       flush_buf(ui);
-      uv_set_vterm_state(UV_UNSUPPORTED);
+      uv_tty_set_vterm_state(UV_TTY_UNSUPPORTED);
     }
 #endif
     unibi_out_ext(ui, data->unibi_ext.disable_mouse);
@@ -1050,7 +1050,7 @@ static void tui_mouse_off(UI *ui)
 #ifdef WIN32
     if (toggle_uv_vterm_state) {
       flush_buf(ui);
-      uv_set_vterm_state(UV_SUPPORTED);
+      uv_tty_set_vterm_state(UV_TTY_SUPPORTED);
     }
 #endif
   }
