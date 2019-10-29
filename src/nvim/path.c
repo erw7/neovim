@@ -2046,6 +2046,9 @@ char *fix_fname(const char *fname)
 # ifdef BACKSLASH_IN_FILENAME
       || strstr(fname, "\\\\") != NULL
 # endif
+# ifdef WIN32
+      || vim_strchr((char_u *)fname, '~') != NULL
+#endif
       )
     return FullName_save(fname, false);
 
