@@ -64,6 +64,9 @@
 #include "nvim/option.h"
 #include "nvim/os_unix.h"
 #include "nvim/path.h"
+#ifdef FEAT_WIN_SHORTNAME
+# include "nvim/os/path_win.h"
+#endif
 #include "nvim/popupmnu.h"
 #include "nvim/profile.h"
 #include "nvim/quickfix.h"
@@ -24140,8 +24143,9 @@ modify_fname(
   char_u dirname[MAXPATHL];
   int c;
   int has_fullname = 0;
-#ifdef WIN32
+#ifdef FEAT_WIN_SHORTNAME
   char_u *fname_start = *fnamep;
+  bool has_shortname = false;
 #endif
 
 repeat:
@@ -24191,7 +24195,7 @@ repeat:
         return -1;
     }
 
-#ifdef WIN32
+#ifdef FEAT_WIN_SHORTNAME
     if (vim_strchr(*fnamep, '~') != NULL) {
       // Expand 8.3 filename to full path.  Needed to make sure the same
       // file does not have two different names.
@@ -24218,14 +24222,11 @@ repeat:
   // ":." - path relative to the current directory
   // ":~" - path relative to the home directory
   // ":8" - shortname path - postponed till after
-#ifdef WIN32
-  bool has_shortname = false;
-#endif
   while (src[*usedlen] == ':'
          && ((c = src[*usedlen + 1]) == '.' || c == '~' || c == '8')) {
     *usedlen += 2;
     if (c == '8') {
-#ifdef WIN32
+#ifdef FEAT_WIN_SHORTNAME
       has_shortname = true;  // Postpone this.
 #endif
       continue;
@@ -24296,12 +24297,12 @@ repeat:
   /* ":8" - shortname  */
   if (src[*usedlen] == ':' && src[*usedlen + 1] == '8') {
     *usedlen += 2;
-#ifdef WIN32
+#ifdef FEAT_WIN_SHORTNAME
     has_shortname = true;
 #endif
   }
 
-#ifdef WIN32
+#ifdef FEAT_WIN_SHORTNAME
   //  Handle ":8" after we have done 'heads' and before we do 'tails'.
   if (has_shortname) {
     // Copy the string if it is shortened by :h and when it wasn't copied
@@ -24338,7 +24339,7 @@ repeat:
     }
     *fnamelen = STRLEN(*bufp);
   }
-#endif  // WIN32
+#endif
 
   /* ":t" - tail, just the basename */
   if (src[*usedlen] == ':' && src[*usedlen + 1] == 't') {
