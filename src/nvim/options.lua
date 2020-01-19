@@ -2503,6 +2503,13 @@ return {
       defaults={if_true={vi=false}}
     },
     {
+      full_name='termtype', abbreviation='tmt',
+      type='string', scope={'global'},
+      vi_def=false,
+      varname='p_tmt',
+      defaults={if_true={vi="",vim=""}}
+    },
+    {
       full_name='terse',
       type='bool', scope={'global'},
       vi_def=true,
