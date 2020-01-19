@@ -2838,6 +2838,13 @@ return {
       defaults={if_true={vi="", vim="BS,HT,ESC,DEL"}}
     },
     {
+      full_name='termtype', abbreviation='tmt',
+      type='string', scope={'global'},
+      vi_def=false,
+      varname='p_tmt',
+      defaults={if_true={vi="",vim=""}}
+    },
+    {
       full_name='terse',
       short_desc=N_("hides notification of search wrap"),
       type='bool', scope={'global'},
