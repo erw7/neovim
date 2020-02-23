@@ -1,18 +1,17 @@
 include(CMakeParseArguments)
 
-# BuildLibuv(TARGET targetname CONFIGURE_COMMAND ... PATCH_COMMAND ... BUILD_COMMAND ... INSTALL_COMMAND ...)
+# BuildLibuv(TARGET targetname CONFIGURE_COMMAND ... BUILD_COMMAND ... INSTALL_COMMAND ...)
 # Reusable function to build libuv, wraps ExternalProject_Add.
 # Failing to pass a command argument will result in no command being run
 function(BuildLibuv)
   cmake_parse_arguments(_libuv
     ""
     ""
-    "PATCH_COMMAND;CONFIGURE_COMMAND;BUILD_COMMAND;INSTALL_COMMAND"
+    "CONFIGURE_COMMAND;BUILD_COMMAND;INSTALL_COMMAND"
     ${ARGN})
 
-  if(NOT _libuv_PATCH_COMMAND AND NOT _libuv_CONFIGURE_COMMAND
-      AND NOT _libuv_BUILD_COMMAND AND NOT _libuv_INSTALL_COMMAND)
-    message(FATAL_ERROR "Must pass at least one of PATCH_COMMAND, CONFIGURE_COMMAND, BUILD_COMMAND, INSTALL_COMMAND")
+  if(NOT _libuv_CONFIGURE_COMMAND AND NOT _libuv_BUILD_COMMAND AND NOT _libuv_INSTALL_COMMAND)
+    message(FATAL_ERROR "Must pass at least one of CONFIGURE_COMMAND, BUILD_COMMAND, INSTALL_COMMAND")
   endif()
   if(NOT _libuv_TARGET)
     set(_libuv_TARGET "libuv")
@@ -30,22 +29,10 @@ function(BuildLibuv)
       -DTARGET=${_libuv_TARGET}
       -DUSE_EXISTING_SRC_DIR=${USE_EXISTING_SRC_DIR}
       -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/DownloadAndExtractFile.cmake
-    PATCH_COMMAND "${_libuv_PATCH_COMMAND}"
     CONFIGURE_COMMAND "${_libuv_CONFIGURE_COMMAND}"
     BUILD_COMMAND "${_libuv_BUILD_COMMAND}"
     INSTALL_COMMAND "${_libuv_INSTALL_COMMAND}")
 endfunction()
-
-if(WIN32)
-  set(LIBUV_PATCH_COMMAND ${GIT_EXECUTABLE} -C ${DEPS_BUILD_DIR}/src/libuv init
-    COMMAND ${GIT_EXECUTABLE} -C ${DEPS_BUILD_DIR}/src/libuv apply --ignore-whitespace
-    ${CMAKE_CURRENT_SOURCE_DIR}/patches/libuv-Fix-install-library-names.patch
-    COMMAND ${GIT_EXECUTABLE} -C ${DEPS_BUILD_DIR}/src/libuv apply --ignore-whitespace
-    ${CMAKE_CURRENT_SOURCE_DIR}/patches/libuv-Add-install-target-on-Windows.patch)
-else()
-  set(LIBUV_PATCH_COMMAND patch -d ${DEPS_BUILD_DIR}/src/libuv -Np1 --input
-    ${CMAKE_CURRENT_SOURCE_DIR}/patches/libuv-Fix-install-library-names.patch)
-endif()
 
 set(LIBUV_CONFIGURE_COMMAND ${CMAKE_COMMAND} ${DEPS_BUILD_DIR}/src/libuv
   -DCMAKE_INSTALL_PREFIX=${DEPS_INSTALL_DIR}
@@ -82,12 +69,9 @@ if(MINGW AND CMAKE_CROSSCOMPILING)
     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
     # Hack to avoid -rdynamic in Mingw
     -DCMAKE_SHARED_LIBRARY_LINK_C_FLAGS="")
-  set(LIBUV_PATCH_COMMAND patch -d ${DEPS_BUILD_DIR}/src/libuv -Np1 --input
-    ${CMAKE_CURRENT_SOURCE_DIR}/patches/libuv-Improve-CMakeLists.patch)
 endif()
 
-BuildLibuv(PATCH_COMMAND ${LIBUV_PATCH_COMMAND}
-  CONFIGURE_COMMAND ${LIBUV_CONFIGURE_COMMAND}
+BuildLibuv(CONFIGURE_COMMAND ${LIBUV_CONFIGURE_COMMAND}
   BUILD_COMMAND ${LIBUV_BUILD_COMMAND}
   INSTALL_COMMAND ${LIBUV_INSTALL_COMMAND})
 

@@ -134,15 +134,8 @@ endif()
 
 include(ExternalProject)
 
-if(WIN32)
-  # "nvim" branch of https://github.com/neovim/libuv
-  set(LIBUV_URL https://github.com/neovim/libuv/archive/d5ff3004d26b9bb863b76247399a9c72a0ff184c.tar.gz)
-  set(LIBUV_SHA256 0f5dfd92269713ed275273966ed73578fc68db669c509b01210cd58c1cf6361d)
-else()
-  # blueyed/nvim-fixes (for *BSD build fixes).
-  set(LIBUV_URL https://github.com/blueyed/libuv/archive/2af4cf2.tar.gz)
-  set(LIBUV_SHA256 SKIP)
-endif()
+set(LIBUV_URL https://github.com/erw7/libuv/archive/improve-build-by-cmake-nvim.tar.gz)
+set(LIBUV_SHA256 560a18834bb77c8242f0595c41981b0eac27d0f6a11fc00ce462e8fa66ed6a5f)
 
 set(MSGPACK_URL https://github.com/msgpack/msgpack-c/releases/download/cpp-3.0.0/msgpack-3.0.0.tar.gz)
 set(MSGPACK_SHA256 bfbb71b7c02f806393bc3cbc491b40523b89e64f83860c58e3e54af47de176e4)
