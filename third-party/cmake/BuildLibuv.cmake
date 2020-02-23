@@ -56,7 +56,7 @@ if(MSVC)
     --build . --target install --config ${CMAKE_BUILD_TYPE}
     COMMAND ${CMAKE_COMMAND} -E remove ${DEPS_INSTALL_DIR}/lib/uv.lib
     COMMAND ${CMAKE_COMMAND} -E rename
-      ${DEPS_INSTALL_DIR}/lib/uv_import.lib ${DEPS_INSTALL_DIR}/lib/uv.lib)
+      ${DEPS_INSTALL_DIR}/lib/libuv.lib ${DEPS_INSTALL_DIR}/lib/uv.lib)
 else()
   set(LIBUV_INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install --config ${CMAKE_BUILD_TYPE})
 endif()
