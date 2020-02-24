@@ -135,7 +135,7 @@ endif()
 include(ExternalProject)
 
 set(LIBUV_URL https://github.com/erw7/libuv/archive/improve-build-by-cmake-nvim.tar.gz)
-set(LIBUV_SHA256 560a18834bb77c8242f0595c41981b0eac27d0f6a11fc00ce462e8fa66ed6a5f)
+set(LIBUV_SHA256 5bf0c248ae450867a487e1083dd7a1d5875923a7e3bd39ac575e11c70da1d992)
 
 set(MSGPACK_URL https://github.com/msgpack/msgpack-c/releases/download/cpp-3.0.0/msgpack-3.0.0.tar.gz)
 set(MSGPACK_SHA256 bfbb71b7c02f806393bc3cbc491b40523b89e64f83860c58e3e54af47de176e4)
