@@ -51,14 +51,25 @@ endif()
 
 set(LIBUV_BUILD_COMMAND ${CMAKE_COMMAND} --build . --config ${CMAKE_BUILD_TYPE})
 if(MSVC)
-  # Since building luv-static fails, remove the static library.
+  # Move the file because the installation destination by upstream
+  # CMakeLists.txt is inappropriate.
   set(LIBUV_INSTALL_COMMAND ${CMAKE_COMMAND}
     --build . --target install --config ${CMAKE_BUILD_TYPE}
-    COMMAND ${CMAKE_COMMAND} -E remove ${DEPS_INSTALL_DIR}/lib/uv.lib
     COMMAND ${CMAKE_COMMAND} -E rename
-      ${DEPS_INSTALL_DIR}/lib/libuv.lib ${DEPS_INSTALL_DIR}/lib/uv.lib)
+      ${DEPS_INSTALL_DIR}/lib/${CMAKE_BUILD_TYPE}/uv.lib ${DEPS_INSTALL_DIR}/lib/uv.lib
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+      ${DEPS_INSTALL_DIR}/bin
+    COMMAND ${CMAKE_COMMAND} -E rename
+      ${DEPS_INSTALL_DIR}/lib/${CMAKE_BUILD_TYPE}/uv.dll ${DEPS_INSTALL_DIR}/bin/uv.dll)
 else()
-  set(LIBUV_INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install --config ${CMAKE_BUILD_TYPE})
+  # If a shared library exists, it will be used by luarocks to install luv.
+  # After that, there are environments where the problem occurs because the
+  # shared library is deleted by clean-shared-librares. To prevent that, delete
+  # the shared library in advance here.
+  set(LIBUV_INSTALL_COMMAND ${CMAKE_COMMAND} --build . --target install --config ${CMAKE_BUILD_TYPE}
+    COMMAND ${CMAKE_COMMAND}
+      -DREMOVE_FILE_GLOB=${DEPS_INSTALL_DIR}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}uv${CMAKE_SHARED_LIBRARY_SUFFIX}*
+      -P ${PROJECT_SOURCE_DIR}/cmake/RemoveFiles.cmake)
 endif()
 
 if(MINGW AND CMAKE_CROSSCOMPILING)
