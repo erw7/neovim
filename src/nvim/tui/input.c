@@ -526,6 +526,18 @@ static void tinput_read_cb(Stream *stream, RBuffer *buf, size_t count_,
     return;
   }
 
+  if (input->waiting_for_bg_response > 0) {
+    char *hex_str = xmallocz(input->read_stream.buffer->size * 3);
+    char *p = hex_str;
+    RBUFFER_EACH(input->read_stream.buffer, c, i) {
+      sprintf(p, "%02x ", c);
+      p += 3;
+    }
+    ELOG("count: %d, input:size %ld, %s", input->waiting_for_bg_response,
+         input->read_stream.buffer->size, hex_str);
+    xfree(hex_str);
+  }
+
   do {
     if (handle_focus_event(input)
         || handle_bracketed_paste(input)
