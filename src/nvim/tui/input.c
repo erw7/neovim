@@ -303,6 +303,18 @@ static void tk_getkeys(TermInput *input, bool force)
       forward_modified_utf8(input, &key);
     } else if (key.type == TERMKEY_TYPE_MOUSE) {
       forward_mouse_event(input, &key);
+    } else if (key.type == TERMKEY_TYPE_UNKNOWN_CSI) {
+      long arg[16];
+      size_t args = ARRAY_SIZE(arg);
+      unsigned long cmd;
+      termkey_interpret_csi(input->tk, &key, arg, &args, &cmd);
+      if ((cmd & ~((unsigned long)0xFF)) == 0) {
+        cmd &= 0xFF;
+        if (cmd == 'O' || cmd == 'I') {
+          bool focus_gained = cmd == 'I' ? true : false;
+          aucmd_schedule_focusgained(focus_gained);
+        }
+      }
     }
   }
 
@@ -327,28 +339,6 @@ static void tinput_timer_cb(TimeWatcher *watcher, void *data)
 {
   tk_getkeys(data, true);
   tinput_flush(data, true);
-}
-
-/// Handle focus events.
-///
-/// If the upcoming sequence of bytes in the input stream matches the termcode
-/// for "focus gained" or "focus lost", consume that sequence and schedule an
-/// event on the main loop.
-///
-/// @param input the input stream
-/// @return true iff handle_focus_event consumed some input
-static bool handle_focus_event(TermInput *input)
-{
-  if (rbuffer_size(input->read_stream.buffer) > 2
-      && (!rbuffer_cmp(input->read_stream.buffer, "\x1b[I", 3)
-          || !rbuffer_cmp(input->read_stream.buffer, "\x1b[O", 3))) {
-    bool focus_gained = *rbuffer_get(input->read_stream.buffer, 2) == 'I';
-    // Advance past the sequence
-    rbuffer_consumed(input->read_stream.buffer, 3);
-    aucmd_schedule_focusgained(focus_gained);
-    return true;
-  }
-  return false;
 }
 
 static bool handle_bracketed_paste(TermInput *input)
@@ -515,8 +505,7 @@ static void tinput_read_cb(Stream *stream, RBuffer *buf, size_t count_,
   }
 
   do {
-    if (handle_focus_event(input)
-        || handle_bracketed_paste(input)
+    if (handle_bracketed_paste(input)
         || handle_forced_escape(input)
         || handle_background_color(input)) {
       continue;
