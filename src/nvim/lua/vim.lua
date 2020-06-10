@@ -248,6 +248,11 @@ do
         lines[#lines] = lines[#lines]..bufline:sub(col + nchars + 1, bufline:len())
         vim.api.nvim_buf_set_lines(0, row-1, row, false, lines)
       else
+        if mode =='n' then
+          -- If the cursor position becomes worse due to returning to normal
+          -- mode at buffer boundaries, adjust the cursor position again.
+          vim.api.nvim_command('normal! a')
+        end
         vim.api.nvim_put(lines, 'c', false, true)
       end
     end
