@@ -9,6 +9,8 @@ local funcs = helpers.funcs
 local get_pathsep = helpers.get_pathsep
 local eq = helpers.eq
 local matches = helpers.matches
+local pcall_err = helpers.pcall_err
+local eval = helpers.eval
 
 describe('ui/ext_popupmenu', function()
   local screen
@@ -1339,7 +1341,33 @@ describe('builtin popupmenu', function()
 
   it('works with rightleft window', function()
     command("set rl")
-    feed('isome rightleft ')
+    feed('i')
+    funcs.complete(16, {'word', 'choice', 'text', 'thing'})
+    screen:expect([[
+                                 ^ drow|
+      {1:                 }{s:           drow}|
+      {1:                 }{n:         eciohc}|
+      {1:                 }{n:           txet}|
+      {1:                 }{n:          gniht}|
+      {1:                               ~}|
+      {1:                               ~}|
+      {1:                               ~}|
+      {1:                               ~}|
+      {1:                               ~}|
+      {1:                               ~}|
+      {1:                               ~}|
+      {1:                               ~}|
+      {1:                               ~}|
+      {1:                               ~}|
+      {1:                               ~}|
+      {1:                               ~}|
+      {1:                               ~}|
+      {1:                               ~}|
+      {2:-- INSERT --}                    |
+    ]])
+    feed('<c-e>')
+
+    feed('some rightleft ')
     screen:expect([[
                       ^  tfelthgir emos|
       {1:                               ~}|
@@ -1367,10 +1395,10 @@ describe('builtin popupmenu', function()
     funcs.complete(16, {'word', 'choice', 'text', 'thing'})
     screen:expect([[
                       ^  tfelthgir emos|
-      {1:  }{n:           drow}{1:              ~}|
-      {1:  }{n:         eciohc}{1:              ~}|
-      {1:  }{n:           txet}{1:              ~}|
-      {1:  }{n:          gniht}{1:              ~}|
+      {1:  }{n:           drow }{1:             ~}|
+      {1:  }{n:         eciohc }{1:             ~}|
+      {1:  }{n:           txet }{1:             ~}|
+      {1:  }{n:          gniht }{1:             ~}|
       {1:                               ~}|
       {1:                               ~}|
       {1:                               ~}|
@@ -1391,10 +1419,10 @@ describe('builtin popupmenu', function()
     feed('<c-n>')
     screen:expect([[
                   ^ drow tfelthgir emos|
-      {1:  }{s:           drow}{1:              ~}|
-      {1:  }{n:         eciohc}{1:              ~}|
-      {1:  }{n:           txet}{1:              ~}|
-      {1:  }{n:          gniht}{1:              ~}|
+      {1:  }{s:           drow }{1:             ~}|
+      {1:  }{n:         eciohc }{1:             ~}|
+      {1:  }{n:           txet }{1:             ~}|
+      {1:  }{n:          gniht }{1:             ~}|
       {1:                               ~}|
       {1:                               ~}|
       {1:                               ~}|
@@ -2018,5 +2046,21 @@ describe('builtin popupmenu', function()
       {8:~                                                           }|
       {9:-- Keyword Local completion (^N^P) }{10:match 1 of 3}             |
     ]])
+  end)
+
+  it('does not crash when displayed in the last column with rightleft (#12032)', function()
+    local col = 30
+    local items = {'word', 'choice', 'text', 'thing'}
+    local max_len = 0
+    for _, v in ipairs(items) do
+      max_len = max_len < #v and #v or max_len
+    end
+    screen:try_resize(col, 8)
+    command('set rightleft')
+    command('call setline(1, repeat(" ", &columns - '..max_len..'))')
+    feed('$i')
+    funcs.complete(col - max_len, items)
+    feed('<c-y>')
+    eq(2, eval('1+1'))
   end)
 end)

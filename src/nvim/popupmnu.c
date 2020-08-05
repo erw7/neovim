@@ -272,6 +272,9 @@ void pum_display(pumitem_T *array, int size, int selected, bool array_changed,
     } else {
       pum_scrollbar = 0;
     }
+    if (curwin->w_p_rl) {
+      max_width++;
+    }
 
     if (def_width < max_width) {
       def_width = max_width;
@@ -354,7 +357,7 @@ void pum_redraw(void)
   int col_off = 0;
   bool extra_space = false;
   if (curwin->w_p_rl) {
-    col_off = pum_width;
+    col_off = pum_width - 1;
     if (pum_col < curwin->w_wincol + curwin->w_width - 1) {
       grid_width += 1;
       extra_space = true;
@@ -553,7 +556,7 @@ void pum_redraw(void)
 
     if (pum_scrollbar > 0) {
       if (curwin->w_p_rl) {
-        grid_putchar(&pum_grid, ' ', row, col_off - pum_width,
+        grid_putchar(&pum_grid, ' ', row, col_off - pum_width + 1,
                      i >= thumb_pos && i < thumb_pos + thumb_heigth
                      ? attr_thumb : attr_scroll);
       } else {
