@@ -1380,6 +1380,10 @@ static char_u * do_one_cmd(char_u **cmdlinep,
     if (ea.cmdidx == CMD_wincmd && p != NULL) {
       get_wincmd_addr_type(skipwhite(p), &ea);
     }
+    // :.cc in quickfix window uses line number
+    if ((ea.cmdidx == CMD_cc || ea.cmdidx == CMD_ll) && bt_quickfix(curbuf)) {
+      ea.addr_type = ADDR_OTHER;
+    }
   }
 
   ea.cmd = cmd;
@@ -1732,11 +1736,15 @@ static char_u * do_one_cmd(char_u **cmdlinep,
           ea.line2 = ARGCOUNT;
         }
         break;
-      case ADDR_QUICKFIX:
-        ea.line2 = qf_get_size(&ea);
+      case ADDR_QUICKFIX_VALID:
+        ea.line2 = qf_get_valid_size(&ea);
         if (ea.line2 == 0) {
           ea.line2 = 1;
         }
+        break;
+      case ADDR_UNSIGNED:
+      case ADDR_QUICKFIX:
+        IEMSG(_("INTERNAL: Cannot use DFLALL with ADDR_UNSIGNED or ADDR_QUICKFIX"));
         break;
     }
   }
@@ -2348,9 +2356,13 @@ int parse_cmd_address(exarg_T *eap, char_u **errormsg, bool silent)
         eap->line2 = CURRENT_TAB_NR;
         break;
       case ADDR_TABS_RELATIVE:
+      case ADDR_UNSIGNED:
         eap->line2 = 1;
         break;
       case ADDR_QUICKFIX:
+        eap->line2 = qf_get_cur_idx(eap);
+        break;
+      case ADDR_QUICKFIX_VALID:
         eap->line2 = qf_get_cur_valid_idx(eap);
         break;
     }
@@ -2400,6 +2412,8 @@ int parse_cmd_address(exarg_T *eap, char_u **errormsg, bool silent)
             }
             break;
           case ADDR_TABS_RELATIVE:
+          case ADDR_UNSIGNED:
+          case ADDR_QUICKFIX:
           case ADDR_OTHER:
             *errormsg = (char_u *)_(e_invrange);
             return FAIL;
@@ -2411,9 +2425,9 @@ int parse_cmd_address(exarg_T *eap, char_u **errormsg, bool silent)
               eap->line2 = ARGCOUNT;
             }
             break;
-          case ADDR_QUICKFIX:
+          case ADDR_QUICKFIX_VALID:
             eap->line1 = 1;
-            eap->line2 = qf_get_size(eap);
+            eap->line2 = qf_get_valid_size(eap);
             if (eap->line2 == 0) {
               eap->line2 = 1;
             }
@@ -3786,11 +3800,13 @@ static linenr_T get_address(exarg_T *eap,
           lnum = LAST_TAB_NR;
           break;
         case ADDR_TABS_RELATIVE:
+        case ADDR_UNSIGNED:
+        case ADDR_QUICKFIX:
           EMSG(_(e_invrange));
           cmd = NULL;
           goto error;
           break;
-        case ADDR_QUICKFIX:
+        case ADDR_QUICKFIX_VALID:
           lnum = qf_get_size(eap);
           if (lnum == 0) {
             lnum = 1;

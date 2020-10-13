@@ -75,7 +75,9 @@
 #define ADDR_BUFFERS            4
 #define ADDR_TABS               5
 #define ADDR_TABS_RELATIVE      6   // Tab page that only relative
-#define ADDR_QUICKFIX           7
+#define ADDR_QUICKFIX_VALID     7   // quickfix list valid entry number
+#define ADDR_QUICKFIX           8
+#define ADDR_UNSIGNED           9   // positive count or zero, defaults to 1
 #define ADDR_OTHER              99
 
 typedef struct exarg exarg_T;
