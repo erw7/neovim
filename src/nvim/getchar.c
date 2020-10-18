@@ -1539,9 +1539,9 @@ int vgetc(void)
       if (!no_mapping && KeyTyped
           && (mod_mask == MOD_MASK_ALT || mod_mask == MOD_MASK_META)) {
         mod_mask = 0;
-        stuffcharReadbuff(c);
-        u_sync(false);
-        c = ESC;
+        ins_char_typebuf(c);
+        ins_char_typebuf(ESC);
+        continue;
       }
 
       break;
