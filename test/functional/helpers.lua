@@ -523,6 +523,10 @@ function module.set_shell_powershell()
   ]])
 end
 
+function module.has_conpty()
+  return module.eval('has("conpty")') == 1
+end
+
 function module.nvim(method, ...)
   return module.request('nvim_'..method, ...)
 end

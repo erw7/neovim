@@ -7,6 +7,7 @@ local meths = helpers.meths
 local iswin = helpers.iswin
 local nvim_dir = helpers.nvim_dir
 local thelpers = require('test.functional.terminal.helpers')
+local has_conpty = helpers.has_conpty
 
 describe('ext_hlstate detailed highlights', function()
   local screen
@@ -179,6 +180,9 @@ describe('ext_hlstate detailed highlights', function()
   end)
 
   it("work with :terminal", function()
+    if has_conpty() then
+      pending('FIXME Sending control sequences by jobsend does not work in ConPTY.')
+    end
     screen:set_default_attr_ids({
       [1] = {{}, {{hi_name = "TermCursorNC", ui_name = "TermCursorNC", kind = "ui"}}},
       [2] = {{foreground = tonumber('0x00ccff'), fg_indexed=true}, {{kind = "term"}}},

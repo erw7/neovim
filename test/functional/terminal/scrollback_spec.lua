@@ -12,6 +12,7 @@ local curbufmeths = helpers.curbufmeths
 local nvim = helpers.nvim
 local feed_data = thelpers.feed_data
 local pcall_err = helpers.pcall_err
+local has_conpty = helpers.has_conpty
 
 describe(':terminal scrollback', function()
   local screen
@@ -348,6 +349,8 @@ describe(':terminal prints more lines than the screen height and exits', functio
     screen:attach({rgb=false})
     feed_command('call termopen(["'..nvim_dir..'/tty-test", "10"]) | startinsert')
     poke_eventloop()
+    local retry_count = has_conpty() and 5 or 1
+    retry(nil, retry_count * screen.timeout, function()
     screen:expect([[
       line6                         |
       line7                         |
@@ -357,6 +360,7 @@ describe(':terminal prints more lines than the screen height and exits', functio
       [Process exited 0]            |
       -- TERMINAL --                |
     ]])
+    end)
     feed('<cr>')
     -- closes the buffer correctly after pressing a key
     screen:expect([[

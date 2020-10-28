@@ -9,6 +9,7 @@ local retry = helpers.retry
 local ok = helpers.ok
 local iswin = helpers.iswin
 local command = helpers.command
+local has_conpty = helpers.has_conpty
 
 describe(':terminal', function()
   local screen
@@ -122,7 +123,11 @@ describe(':terminal (with fake shell)', function()
     screen:attach({rgb=false})
     -- shell-test.c is a fake shell that prints its arguments and exits.
     nvim('set_option', 'shell', nvim_dir..'/shell-test')
-    nvim('set_option', 'shellcmdflag', 'EXE')
+    -- ClosePseudoConsole may hang if the process is terminated very quickly on
+    -- ConPTY(#12974). If ConPTY is used to prevent this, specify the -s command
+    -- line option to make the fake shell sleep for a period of time.
+    local shellcmdflag = has_conpty() and '-s EXE' or 'EXE'
+    nvim('set_option', 'shellcmdflag', shellcmdflag)
   end)
 
   -- Invokes `:terminal {cmd}` using a fake shell (shell-test.c) which prints
@@ -155,7 +160,8 @@ describe(':terminal (with fake shell)', function()
   end)
 
   it("with no argument, but 'shell' has arguments, acts like termopen()", function()
-    nvim('set_option', 'shell', nvim_dir..'/shell-test -t jeff')
+    local extra_args = has_conpty() and '-s ' or ''
+    nvim('set_option', 'shell', nvim_dir..'/shell-test '..extra_args..'-t jeff')
     terminal_with_fake_shell()
     screen:expect([[
       ^jeff $                                            |
@@ -177,7 +183,11 @@ describe(':terminal (with fake shell)', function()
   end)
 
   it("executes a given command through the shell, when 'shell' has arguments", function()
-    nvim('set_option', 'shell', nvim_dir..'/shell-test -t jeff')
+    local extra_args = has_conpty() and '-s ' or ''
+    if has_conpty() then
+      nvim('set_option', 'shellcmdflag', 'EXE')
+    end
+    nvim('set_option', 'shell', nvim_dir..'/shell-test '..extra_args..'-t jeff')
     command('set shellxquote=')   -- win: avoid extra quotes
     terminal_with_fake_shell('echo hi')
     screen:expect([[
@@ -226,12 +236,15 @@ describe(':terminal (with fake shell)', function()
 
   it('works with :find', function()
     terminal_with_fake_shell()
+    local retry_count = has_conpty() and 5 or 1
+    retry(nil, retry_count * screen.timeout, function()
     screen:expect([[
       ^ready $                                           |
       [Process exited 0]                                |
                                                         |
       :terminal                                         |
     ]])
+    end)
     eq('term://', string.match(eval('bufname("%")'), "^term://"))
     feed([[<C-\><C-N>]])
     feed_command([[find */shadacat.py]])

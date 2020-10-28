@@ -6,6 +6,7 @@ local nvim_dir, command = helpers.nvim_dir, helpers.command
 local feed_command = helpers.feed_command
 local hide_cursor = thelpers.hide_cursor
 local show_cursor = thelpers.show_cursor
+local has_conpty = helpers.has_conpty
 
 describe(':terminal cursor', function()
   local screen
@@ -85,6 +86,9 @@ describe(':terminal cursor', function()
 
   describe('when invisible', function()
     it('is not highlighted and is detached from screen cursor', function()
+      if has_conpty() then
+        pending('FIXME Sending control sequences by jobsend does not work in ConPTY.')
+      end
       hide_cursor()
       screen:expect([[
         tty ready                                         |

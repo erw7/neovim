@@ -11,6 +11,7 @@ local clear = helpers.clear
 local eq = helpers.eq
 local matches = helpers.matches
 local pesc = helpers.pesc
+local has_conpty = helpers.has_conpty
 
 describe(':edit term://*', function()
   local get_screen = function(columns, lines)
@@ -39,7 +40,11 @@ describe(':edit term://*', function()
     local columns, lines = 20, 4
     local scr = get_screen(columns, lines)
     local rep = 97
-    meths.set_option('shellcmdflag', 'REP ' .. rep)
+    -- ClosePseudoConsole may hang if the process is terminated very quickly on
+    -- ConPTY(#12974). If ConPTY is used to prevent this, specify the -s command
+    -- line option to make the fake shell sleep for a period of time.
+    local shellcmdflag = has_conpty() and '-s REP ' or 'REP '
+    meths.set_option('shellcmdflag', shellcmdflag .. rep)
     command('set shellxquote=')  -- win: avoid extra quotes
     local sb = 10
     command('autocmd TermOpen * :setlocal scrollback='..tostring(sb)

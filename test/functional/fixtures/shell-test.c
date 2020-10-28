@@ -25,15 +25,15 @@ static void help(void)
   puts("  shell-test --help");
   puts("    Prints this help to stdout.");
   puts("  shell-test");
-  puts("  shell-test EXE");
+  puts("  shell-test [-s] EXE");
   puts("    Prints \"ready $ \" to stderr.");
-  puts("  shell-test -t {prompt text}");
+  puts("  shell-test [-s] -t {prompt text}");
   puts("    Prints \"{prompt text} $ \" to stderr.");
-  puts("  shell-test EXE \"prog args...\"");
+  puts("  shell-test [-s] EXE \"prog args...\"");
   puts("    Prints \"ready $ prog args...\\n\" to stderr.");
-  puts("  shell-test -t {prompt text} EXE \"prog args...\"");
+  puts("  shell-test [-s] -t {prompt text} EXE \"prog args...\"");
   puts("    Prints \"{prompt text} $ progs args...\" to stderr.");
-  puts("  shell-test REP N {text}");
+  puts("  shell-test [-s] REP N {text}");
   puts("    Prints \"{lnr}: {text}\\n\" to stdout N times, taking N milliseconds.");
   puts("    Example:");
   puts("      shell-test REP 97 \"foo bar\"");
@@ -51,6 +51,11 @@ int main(int argc, char **argv)
   }
 
   if (argc >= 2) {
+    if (strcmp(argv[1], "-s") == 0) {
+      usleep(1000);
+      argc--;
+      argv++;
+    }
     if (strcmp(argv[1], "-t") == 0) {
       if (argc < 3) {
         fprintf(stderr,"Missing prompt text for -t option\n");
