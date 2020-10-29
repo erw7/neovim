@@ -37,7 +37,6 @@ function(GetBinaryDep)
       -DTARGET=${_gettool_TARGET}
       -DUSE_EXISTING_SRC_DIR=${USE_EXISTING_SRC_DIR}
       -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/DownloadAndExtractFile.cmake
-    CONFIGURE_COMMAND ""
     BUILD_IN_SOURCE 1
     CONFIGURE_COMMAND ""
     BUILD_COMMAND ""
