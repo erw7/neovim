@@ -50,9 +50,11 @@ int main(int argc, char **argv)
     help();
   }
 
+  int need_wait = 0;
   if (argc >= 2) {
     if (strcmp(argv[1], "-s") == 0) {
-      usleep(1000);
+      usleep(10 * 1000);
+      need_wait = 1;
       argc--;
       argv++;
     }
@@ -132,6 +134,9 @@ int main(int argc, char **argv)
       return 3;
     }
     fflush(NULL);
+    if (need_wait == 1) {
+      usleep(10 * 1000);
+    }
     return 0;
   } else if (argc == 1) {
     fprintf(stderr, "ready $ ");
