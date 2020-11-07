@@ -515,7 +515,7 @@ void pum_redraw(void)
       if (pum_rl) {
         grid_fill(&pum_grid, row, row + 1, col_off - pum_base_width - n + 1,
                   col + 1, ' ', ' ', attr);
-        col = col_off - pum_base_width - n + 1;
+        col = col_off - pum_base_width - n;
       } else {
         grid_fill(&pum_grid, row, row + 1, col,
                   col_off + pum_base_width + n, ' ', ' ', attr);
