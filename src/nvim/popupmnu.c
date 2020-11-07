@@ -336,7 +336,8 @@ void pum_redraw(void)
   int col_off = 0;
   bool extra_space = false;
   if (pum_rl) {
-    col_off = pum_width;
+    // The grid coordinates are left-to-right, so adjust col_off.
+    col_off = pum_width - 1;
     if (pum_col < curwin->w_wincol + curwin->w_width - 1) {
       grid_width += 1;
       extra_space = true;
@@ -348,10 +349,15 @@ void pum_redraw(void)
   }
   if (pum_scrollbar > 0) {
     grid_width++;
+    if (pum_rl) {
+      // The scroll bar is displayed on the left side, so we need to increase
+      // the col_off.
+      col_off++;
+    }
   }
 
   grid_assign_handle(&pum_grid);
-  bool moved = ui_comp_put_grid(&pum_grid, pum_row, pum_col-col_off,
+  bool moved = ui_comp_put_grid(&pum_grid, pum_row, pum_col - col_off,
                                 pum_height, grid_width, false, true);
   bool invalid_grid = moved || pum_invalid;
   pum_invalid = false;
