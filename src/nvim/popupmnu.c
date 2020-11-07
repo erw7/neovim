@@ -169,8 +169,6 @@ void pum_display(pumitem_T *array, int size, int selected, bool array_changed,
       }
     }
 
-    int def_width = (int)p_pw;
-
     win_T *pvwin = NULL;
     FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
       if (wp->w_p_pvw) {
@@ -276,103 +274,38 @@ void pum_display(pumitem_T *array, int size, int selected, bool array_changed,
       pum_scrollbar = 0;
     }
 
-    if (def_width < max_width) {
-      def_width = max_width;
+    // align pum with "cursor_col"
+    pum_col = cursor_col;
+
+    // start with the maximum space available
+    if (pum_rl) {
+      pum_width = pum_col - pum_scrollbar + 1;
+    } else {
+      assert(Columns - pum_col - pum_scrollbar >= INT_MIN
+             && Columns - pum_col - pum_scrollbar <= INT_MAX);
+      pum_width = (int)(Columns - pum_col - pum_scrollbar);
     }
 
-    if ((((cursor_col < Columns - p_pw) || (cursor_col < Columns - max_width))
-         && !pum_rl)
-        || (pum_rl && ((cursor_col > p_pw) || (cursor_col > max_width)))) {
-      // align pum with "cursor_col"
-      pum_col = cursor_col;
+    if ((pum_width > max_width + pum_kind_width + pum_extra_width + 1)
+        && (pum_width > p_pw)) {
+      // the width is more than needed for the items, make it
+      // narrower
+      pum_width = max_width + pum_kind_width + pum_extra_width + 1;
 
-      // start with the maximum space available
-      if (pum_rl) {
-        pum_width = pum_col - pum_scrollbar + 1;
-      } else {
-        assert(Columns - pum_col - pum_scrollbar >= INT_MIN
-               && Columns - pum_col - pum_scrollbar <= INT_MAX);
-        pum_width = (int)(Columns - pum_col - pum_scrollbar);
+      if (pum_width < p_pw) {
+        pum_width = (int)p_pw;
       }
-
-      if ((pum_width > max_width + pum_kind_width + pum_extra_width + 1)
-          && (pum_width > p_pw)) {
-        // the width is more than needed for the items, make it
-        // narrower
-        pum_width = max_width + pum_kind_width + pum_extra_width + 1;
-
-        if (pum_width < p_pw) {
-          pum_width = (int)p_pw;
-        }
-      } else if (((cursor_col > p_pw || cursor_col > max_width) && !pum_rl)
-                 || (pum_rl && (cursor_col < Columns - p_pw
-                                || cursor_col < Columns - max_width))) {
-        // align pum edge with "cursor_col"
-        if (pum_rl && W_ENDCOL(curwin) < max_width + pum_scrollbar + 1) {
-          pum_col = cursor_col + max_width + pum_scrollbar + 1;
-          if (pum_col >= Columns) {
-            pum_col = Columns - 1;
-          }
-        } else if (!pum_rl) {
-          if (curwin->w_wincol > Columns - max_width - pum_scrollbar
-              && max_width <= p_pw) {
-            // use full width to end of the screen
-            pum_col = Columns - max_width - pum_scrollbar;
-            if (pum_col < 0) {
-              pum_col = 0;
-            }
-          }
-        }
-
-        if (pum_rl) {
-          pum_width = pum_col - pum_scrollbar + 1;
-        } else {
-          pum_width = Columns - pum_col - pum_scrollbar;
-        }
-
-        if (pum_width < p_pw) {
-          pum_width = (int)p_pw;
-          if (pum_rl) {
-            if (pum_width > pum_col) {
-              pum_width = pum_col;
-            }
-          } else {
-            if (pum_width >= Columns - pum_col) {
-              pum_width = Columns - pum_col - 1;
-            }
-          }
-        } else if (pum_width > max_width + pum_kind_width + pum_extra_width + 1
-                   && pum_width > p_pw) {
-          pum_width = max_width + pum_kind_width + pum_extra_width + 1;
-          if (pum_width < p_pw) {
-            pum_width = (int)p_pw;
-          }
-        }
-      }
-    } else if (Columns < def_width) {
-      // not enough room, will use what we have
-      if (pum_rl) {
-        assert(Columns - 1 >= INT_MIN);
-        pum_col = (int)(Columns - 1);
-      } else {
-        pum_col = 0;
-      }
-      assert(Columns - 1 >= INT_MIN);
-      pum_width = (int)(Columns - 1);
     } else {
-      if (max_width > p_pw) {
-        // truncate
-        max_width = (int)p_pw;
-      }
-
-      if (pum_rl) {
+      max_width = max_width > p_pw ? (int)p_pw : max_width;
+      max_width = max_width > Columns ? Columns : max_width;
+      if (cursor_col < max_width - 1 && curwin->w_p_rl) {
         pum_col = max_width - 1;
-      } else {
-        assert(Columns - max_width >= INT_MIN
-               && Columns - max_width <= INT_MAX);
-        pum_col = (int)(Columns - max_width);
+        pum_width = pum_col - pum_scrollbar + 1;
       }
-      pum_width = max_width - pum_scrollbar;
+      if (cursor_col > Columns - max_width) {
+        pum_col = Columns - max_width;
+        pum_width = Columns - pum_col - pum_scrollbar;
+      }
     }
 
     // Set selected item and redraw.  If the window size changed need to redo
