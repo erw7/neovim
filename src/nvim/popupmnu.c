@@ -287,7 +287,8 @@ void pum_display(pumitem_T *array, int size, int selected, bool array_changed,
         && (pum_width > p_pw)) {
       // the width is more than needed for the items, make it
       // narrower
-      pum_width = max_width + pum_kind_width + pum_extra_width + 1;
+      pum_width = max_width
+        + pum_kind_width + pum_extra_width + 1 - pum_scrollbar;
 
       if (pum_width < p_pw) {
         pum_width = (int)p_pw;
