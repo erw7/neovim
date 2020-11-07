@@ -456,14 +456,15 @@ void pum_redraw(void)
               char_u *rt = reverse_text(st);
               char_u *rt_start = rt;
               int size = vim_strsize(rt);
+              int remaining = pum_width - col_off + col;
 
-              if (size > pum_width) {
+              if (size > remaining) {
                 do {
                   size -= utf_ptr2cells(rt);
                   MB_PTR_ADV(rt);
-                } while (size > pum_width);
+                } while (size > remaining);
 
-                if (size < pum_width) {
+                if (size < remaining) {
                   // Most left character requires 2-cells but only 1 cell
                   // is available on screen.  Put a '<' on the left of the
                   // pum item
