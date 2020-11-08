@@ -458,43 +458,48 @@ void pum_redraw(void)
             st = (char_u *)transstr((const char *)s);
             *p = saved;
 
+            int size = 0;
+            int remaining;
+            if (pum_rl) {
+              remaining = pum_width - (col_off - col);
+            } else {
+              remaining = pum_width - (col - col_off);
+            }
+            if (vim_strsize(st) > remaining) {
+              char_u *st_cur = st;
+              do {
+                size += utf_ptr2cells(st_cur);
+                if (size > remaining) {
+                  if (pum_rl) {
+                    // Most left character requires 2-cells but only 1 cell
+                    // is available on screen.  Put a '<' on the left of the
+                    // pum item
+                    *(st_cur++) = '<';
+                    size--;
+                  } else {
+                    // Most right character requires 2-cells but only 1 cell
+                    // is available on screen.  Put a '>' on the right of the
+                    // pum item
+                    *(st_cur++) = '>';
+                  }
+                  break;
+                }
+                MB_PTR_ADV(st_cur);
+              } while (size < remaining);
+              *st_cur = NUL;
+            } else if (pum_rl) {
+              size = vim_strsize(st);
+            }
+
             if (pum_rl) {
               char_u *rt = reverse_text(st);
-              char_u *rt_start = rt;
-              int size = vim_strsize(rt);
-              int remaining = pum_width - col_off + col;
-
-              if (size > remaining) {
-                do {
-                  size -= utf_ptr2cells(rt);
-                  MB_PTR_ADV(rt);
-                } while (size > remaining);
-
-                if (size < remaining) {
-                  // Most left character requires 2-cells but only 1 cell
-                  // is available on screen.  Put a '<' on the left of the
-                  // pum item
-                  *(--rt) = '<';
-                  size++;
-                }
-              }
               grid_puts_len(&pum_grid, rt, (int)STRLEN(rt), row,
                             col - size + 1, attr);
-              xfree(rt_start);
+              xfree(rt);
               xfree(st);
               col -= width;
             } else {
-              int size = (int)STRLEN(st);
-              int cells = (int)mb_string2cells(st);
-
-              // only draw the text that fits
-              while (size > 0 && col + cells > pum_width + pum_col) {
-                size--;
-                size -= utf_head_off(st, st + size);
-                cells -= utf_ptr2cells(st + size);
-              }
-
-              grid_puts_len(&pum_grid, st, size, row, col, attr);
+              grid_puts_len(&pum_grid, st, (int)STRLEN(st), row, col, attr);
               xfree(st);
               col += width;
             }
