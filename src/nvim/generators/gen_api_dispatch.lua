@@ -260,6 +260,16 @@ for i = 1, #functions do
       args[#args + 1] = converted
     end
 
+    -- Check textlock
+    if fn.check_textlock then
+      output:write('\n')
+      output:write('  if (text_locked()) {\n')
+      output:write('    api_set_error(error, kErrorTypeException, \
+         "%s: '..fn.name ..'", e_secure);\n')
+      output:write('    goto cleanup;\n')
+      output:write('  }\n')
+    end
+
     -- function call
     local call_args = table.concat(args, ', ')
     output:write('\n  ')
@@ -358,6 +368,7 @@ output:write([[
 #include <lauxlib.h>
 
 #include "nvim/func_attr.h"
+#include "nvim/ex_getln.h"
 #include "nvim/api/private/defs.h"
 #include "nvim/api/private/helpers.h"
 #include "nvim/lua/converter.h"
@@ -432,6 +443,20 @@ local function process_function(fn)
     else
       free_at_exit_code = free_at_exit_code .. ('\n  exit_%u:\n    %s'):format(
         rev_i, code)
+    end
+  end
+  if fn.check_textlock then
+    write_shifted_output(output, string.format([[
+
+    if (text_locked()) {
+      api_set_error(&err, kErrorTypeException, "%%s: %s", e_secure);
+      goto exit_%u;
+    }
+
+    ]], fn.name, #fn.parameters))
+    if #fn.parameters ~=  0 then
+      free_at_exit_code = ('\n  exit_%u:'):format(#fn.parameters)
+        .. free_at_exit_code
     end
   end
   local err_throw_code = [[
