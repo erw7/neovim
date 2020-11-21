@@ -65,62 +65,87 @@ function! provider#clipboard#Error() abort
   return s:err
 endfunction
 
+function! provider#clipboard#Reload(...) abort
+  unlet g:loaded_clipboard_provider
+  call timer_start(0, { _ -> execute('runtime autoload/provider/clipboard.vim') })
+endfunction
+
 function! provider#clipboard#Executable() abort
+  let result = ''
+
   if exists('g:clipboard')
     if type({}) isnot# type(g:clipboard)
           \ || type({}) isnot# type(get(g:clipboard, 'copy', v:null))
           \ || type({}) isnot# type(get(g:clipboard, 'paste', v:null))
+      let g:clipboard = {}
       let s:err = 'clipboard: invalid g:clipboard'
-      return ''
+    else
+      let s:copy = {}
+      let s:copy['+'] = s:split_cmd(get(g:clipboard.copy, '+', v:null))
+      let s:copy['*'] = s:split_cmd(get(g:clipboard.copy, '*', v:null))
+
+      let s:paste = {}
+      let s:paste['+'] = s:split_cmd(get(g:clipboard.paste, '+', v:null))
+      let s:paste['*'] = s:split_cmd(get(g:clipboard.paste, '*', v:null))
+
+      let s:cache_enabled = get(g:clipboard, 'cache_enabled', 0)
+      let result = get(g:clipboard, 'name', 'g:clipboard')
     endif
-
-    let s:copy = {}
-    let s:copy['+'] = s:split_cmd(get(g:clipboard.copy, '+', v:null))
-    let s:copy['*'] = s:split_cmd(get(g:clipboard.copy, '*', v:null))
-
-    let s:paste = {}
-    let s:paste['+'] = s:split_cmd(get(g:clipboard.paste, '+', v:null))
-    let s:paste['*'] = s:split_cmd(get(g:clipboard.paste, '*', v:null))
-
-    let s:cache_enabled = get(g:clipboard, 'cache_enabled', 0)
-    return get(g:clipboard, 'name', 'g:clipboard')
   elseif has('mac')
     let s:copy['+'] = ['pbcopy']
     let s:paste['+'] = ['pbpaste']
     let s:copy['*'] = s:copy['+']
     let s:paste['*'] = s:paste['+']
     let s:cache_enabled = 0
-    return 'pbcopy'
+    let result = 'pbcopy'
+    let g:clipboard = { 'name' : result,
+          \ 'copy' : s:copy, 'paste' : s:paste,
+          \ 'cache_enabled' : s:cache_enabled }
   elseif !empty($WAYLAND_DISPLAY) && executable('wl-copy') && executable('wl-paste')
     let s:copy['+'] = ['wl-copy', '--foreground', '--type', 'text/plain']
     let s:paste['+'] = ['wl-paste', '--no-newline']
     let s:copy['*'] = ['wl-copy', '--foreground', '--primary', '--type', 'text/plain']
     let s:paste['*'] = ['wl-paste', '--no-newline', '--primary']
-    return 'wl-copy'
+    let result = 'wl-copy'
+    let g:clipboard = { 'name' : result,
+          \ 'copy' : s:copy, 'paste' : s:paste,
+          \ 'cache_enabled' : s:cache_enabled }
   elseif !empty($DISPLAY) && executable('xclip')
     let s:copy['+'] = ['xclip', '-quiet', '-i', '-selection', 'clipboard']
     let s:paste['+'] = ['xclip', '-o', '-selection', 'clipboard']
     let s:copy['*'] = ['xclip', '-quiet', '-i', '-selection', 'primary']
     let s:paste['*'] = ['xclip', '-o', '-selection', 'primary']
-    return 'xclip'
+    let result = 'xclip'
+    let g:clipboard = { 'name' : result,
+          \ 'copy' : s:copy, 'paste' : s:paste,
+          \ 'cache_enabled' : s:cache_enabled }
   elseif !empty($DISPLAY) && executable('xsel') && s:cmd_ok('xsel -o -b')
     let s:copy['+'] = ['xsel', '--nodetach', '-i', '-b']
     let s:paste['+'] = ['xsel', '-o', '-b']
     let s:copy['*'] = ['xsel', '--nodetach', '-i', '-p']
     let s:paste['*'] = ['xsel', '-o', '-p']
-    return 'xsel'
+    let result = 'xsel'
+    let g:clipboard = { 'name' : result,
+          \ 'copy' : s:copy, 'paste' : s:paste,
+          \ 'cache_enabled' : s:cache_enabled }
   elseif executable('lemonade')
     let s:copy['+'] = ['lemonade', 'copy']
     let s:paste['+'] = ['lemonade', 'paste']
     let s:copy['*'] = ['lemonade', 'copy']
     let s:paste['*'] = ['lemonade', 'paste']
-    return 'lemonade'
+    let result = 'lemonade'
+    let g:clipboard = { 'name' : result,
+          \ 'copy' : s:copy, 'paste' : s:paste,
+          \ 'cache_enabled' : s:cache_enabled }
   elseif executable('doitclient')
     let s:copy['+'] = ['doitclient', 'wclip']
     let s:paste['+'] = ['doitclient', 'wclip', '-r']
     let s:copy['*'] = s:copy['+']
     let s:paste['*'] = s:paste['+']
-    return 'doitclient'
+    let result = 'doitclient'
+    let g:clipboard = { 'name' : result,
+          \ 'copy' : s:copy, 'paste' : s:paste,
+          \ 'cache_enabled' : s:cache_enabled }
   elseif executable('win32yank.exe')
     if has('wsl') && getftype(exepath('win32yank.exe')) == 'link'
       let win32yank = resolve(exepath('win32yank.exe'))
@@ -131,17 +156,27 @@ function! provider#clipboard#Executable() abort
     let s:paste['+'] = [win32yank, '-o', '--lf']
     let s:copy['*'] = s:copy['+']
     let s:paste['*'] = s:paste['+']
-    return 'win32yank'
+    let result = 'win32yank'
+    let g:clipboard = { 'name' : result,
+          \ 'copy' : s:copy, 'paste' : s:paste,
+          \ 'cache_enabled' : s:cache_enabled }
   elseif !empty($TMUX) && executable('tmux')
     let s:copy['+'] = ['tmux', 'load-buffer', '-']
     let s:paste['+'] = ['tmux', 'save-buffer', '-']
     let s:copy['*'] = s:copy['+']
     let s:paste['*'] = s:paste['+']
-    return 'tmux'
+    let result = 'tmux'
+    let g:clipboard = { 'name' : result,
+          \ 'copy' : s:copy, 'paste' : s:paste,
+          \ 'cache_enabled' : s:cache_enabled }
   endif
 
-  let s:err = 'clipboard: No clipboard tool. :help clipboard'
-  return ''
+  if empty(result) && empty(s:err)
+    let s:err = 'clipboard: No clipboard tool. :help clipboard'
+    let g:clipboard = {}
+  endif
+  call dictwatcheradd(g:clipboard, '*', 'provider#clipboard#Reload')
+  return result
 endfunction
 
 function! s:clipboard.get(reg) abort
