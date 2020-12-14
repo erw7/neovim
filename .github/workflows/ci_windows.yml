@@ -23,6 +23,18 @@ jobs:
           path: C:\projects\nvim-deps
           key: ${{ matrix.config }}-${{ hashFiles('third-party\**') }}
 
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '2.7'
+
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.5'
+
+      - uses: actions/setup-node@v1
+        with:
+          node-version: '12.x'
+
       - name: Run CI
         run: powershell ci\build.ps1
         env:

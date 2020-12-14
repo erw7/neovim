@@ -28,27 +28,9 @@ function exitIfFailed() {
   }
 }
 
-# https://github.com/lukesampson/scoop#installation
-$scoop = (New-Object System.Net.WebClient).DownloadString('https://get.scoop.sh')
-& {
-  Set-StrictMode -Off
-  Invoke-Expression $scoop
-}
-
-# scoop install perl@5.30.3.1
-# perl --version
-# cpanm.bat --version
-
 if (-not $NoTests) {
-  scoop install nodejs-lts
   node --version
   npm.cmd --version
-
-  # cpanm.bat -n Neovim::Ext
-  # if ($LastExitCode -ne 0) {
-  #   Get-Content -Path "$env:USERPROFILE\.cpanm\build.log"
-  # }
-  # perl -W -e 'use Neovim::Ext; print $Neovim::Ext::VERSION'; exitIfFailed
 }
 
 if (-Not (Test-Path -PathType container $env:DEPS_BUILD_DIR)) {
@@ -77,7 +59,7 @@ if ($compiler -eq 'MINGW') {
   # These are native MinGW builds, but they use the toolchain inside
   # MSYS2, this allows using all the dependencies and tools available
   # in MSYS2, but we cannot build inside the MSYS2 shell.
-  $cmakeGenerator = 'Ninja'
+  $env:CMAKE_GENERATOR = 'Ninja'
   $cmakeGeneratorArgs = '-v'
   $mingwPackages = @('ninja', 'cmake', 'diffutils').ForEach({
     "mingw-w64-$arch-$_"
@@ -89,35 +71,28 @@ if ($compiler -eq 'MINGW') {
   # Avoid pacman "warning" which causes non-zero return code. https://github.com/open62541/open62541/issues/2068
   & C:\msys64\usr\bin\mkdir -p /var/cache/pacman/pkg
 
-  # Build third-party dependencies
-  C:\msys64\usr\bin\bash -lc "curl -O http://repo.msys2.org/msys/x86_64/msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz" ; exitIfFailed
-  C:\msys64\usr\bin\bash -lc "curl -O http://repo.msys2.org/msys/x86_64/msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz.sig" ; exitIfFailed
-  C:\msys64\usr\bin\bash -lc "pacman-key --verify msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz.sig" ; exitIfFailed
-  C:\msys64\usr\bin\bash -lc "pacman --verbose --noconfirm -U msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz" ; exitIfFailed
-  # If there are still processes using msys-2.0.dll, after the base system update is finished, it will wait for input from the user.
-  # To prevent this, we will terminate all processes that use msys-2.0.dll.
-  Get-Process | Where-Object { $_.path -like 'C:\msys64*' } | Stop-Process
-  C:\msys64\usr\bin\bash -lc "pacman --verbose --noconfirm -Syu" ; exitIfFailed
+  C:\msys64\usr\bin\bash -lc "pacman --verbose --noconfirm -Su" ; exitIfFailed
   C:\msys64\usr\bin\bash -lc "pacman --verbose --noconfirm --needed -S $mingwPackages" ; exitIfFailed
 }
 elseif ($compiler -eq 'MSVC') {
   $cmakeGeneratorArgs = '/verbosity:normal'
+  $env:CMAKE_GENERATOR = 'Visual Studio 16 2019'
   if ($bits -eq 32) {
-    $cmakeGenerator = 'Visual Studio 15 2017'
+    $env:CMAKE_GENERATOR_PLATFORM = 'Win32'
   }
   elseif ($bits -eq 64) {
-    $cmakeGenerator = 'Visual Studio 15 2017 Win64'
+    $env:CMAKE_GENERATOR_PLATFORM = 'x64'
   }
 }
 
 if (-not $NoTests) {
   # Setup python (use AppVeyor system python)
 
-  C:\Python27\python.exe -m pip install pynvim ; exitIfFailed
-  C:\Python35\python.exe -m pip install pynvim ; exitIfFailed
+  C:\hostedtoolcache\windows\Python\2.7.18\x64\python.exe -m pip install pynvim ; exitIfFailed
+  C:\hostedtoolcache\windows\Python\3.5.4\x64\python.exe -m pip install pynvim ; exitIfFailed
   # Disambiguate python3
-  move c:\Python35\python.exe c:\Python35\python3.exe
-  $env:PATH = "C:\Python35;C:\Python27;$env:PATH"
+  move C:\hostedtoolcache\windows\Python\3.5.4\x64\python.exe C:\hostedtoolcache\windows\Python\3.5.4\x64\python3.exe
+  $env:PATH = "C:\hostedtoolcache\windows\Python\3.5.4\x64;C:\hostedtoolcache\windows\Python\2.7.18\x64;$env:PATH"
   # Sanity check
   python  -c "import pynvim; print(str(pynvim))" ; exitIfFailed
   python3 -c "import pynvim; print(str(pynvim))" ; exitIfFailed
@@ -133,7 +108,7 @@ if (-not $NoTests) {
 
 if ($compiler -eq 'MSVC') {
   # Required for LuaRocks (https://github.com/luarocks/luarocks/issues/1039#issuecomment-507296940).
-  $env:VCINSTALLDIR = "C:/Program Files (x86)/Microsoft Visual Studio/2017/Community/VC/Tools/MSVC/14.16.27023/"
+  $env:VCINSTALLDIR = "C:/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/VC/Tools/MSVC/14.28.29333/"
 }
 
 function convertToCmakeArgs($vars) {
@@ -141,14 +116,14 @@ function convertToCmakeArgs($vars) {
 }
 
 cd $env:DEPS_BUILD_DIR
-cmake -G $cmakeGenerator $(convertToCmakeArgs($depsCmakeVars)) "$buildDir/third-party/" ; exitIfFailed
+cmake $(convertToCmakeArgs($depsCmakeVars)) "$buildDir/third-party/" ; exitIfFailed
 cmake --build . --config $cmakeBuildType -- $cmakeGeneratorArgs ; exitIfFailed
 cd $buildDir
 
 # Build Neovim
 mkdir build
 cd build
-cmake -G $cmakeGenerator $(convertToCmakeArgs($nvimCmakeVars)) .. ; exitIfFailed
+cmake $(convertToCmakeArgs($nvimCmakeVars)) .. ; exitIfFailed
 cmake --build . --config $cmakeBuildType -- $cmakeGeneratorArgs ; exitIfFailed
 .\bin\nvim --version ; exitIfFailed
 
