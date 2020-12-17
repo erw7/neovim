@@ -88,6 +88,9 @@ elseif ($compiler -eq 'MSVC') {
 if (-not $NoTests) {
   # Setup python (use AppVeyor system python)
 
+  Get-ToolcacheToolDir Python
+  $env:AGENT_TOOLSDIRECTORY
+
   C:\hostedtoolcache\windows\Python\2.7.18\x64\python.exe -m pip install pynvim ; exitIfFailed
   C:\hostedtoolcache\windows\Python\3.5.4\x64\python.exe -m pip install pynvim ; exitIfFailed
   # Disambiguate python3
@@ -103,6 +106,8 @@ if (-not $NoTests) {
   npm.cmd install -g neovim
   Get-Command -CommandType Application neovim-node-host.cmd
   npm.cmd link neovim
+
+  exit 1
 }
 
 if ($compiler -eq 'MSVC') {
