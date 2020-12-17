@@ -88,8 +88,8 @@ elseif ($compiler -eq 'MSVC') {
 if (-not $NoTests) {
   # Setup python (use AppVeyor system python)
 
-  Get-ToolcacheToolDir Python
   $env:AGENT_TOOLSDIRECTORY
+  Get-ToolcacheToolDir Python
 
   C:\hostedtoolcache\windows\Python\2.7.18\x64\python.exe -m pip install pynvim ; exitIfFailed
   C:\hostedtoolcache\windows\Python\3.5.4\x64\python.exe -m pip install pynvim ; exitIfFailed
