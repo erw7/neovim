@@ -511,8 +511,6 @@ static int build_env_block(dict_T *denv, wchar_t **env_block)
     EnvNode *env_node = QUEUE_DATA(q, EnvNode, node);
     memcpy(pos, env_node->str, env_node->len * sizeof(*pos));
     pos += env_node->len;
-    *pos = L'\0';
-    pos++;
   }
 
   *pos = L'\0';
