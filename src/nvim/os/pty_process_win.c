@@ -496,8 +496,8 @@ static int build_env_block(dict_T *denv, wchar_t **env_block)
     if (rc != 0) {
       goto cleanup;
     }
-    env_node->len = wcslen(env_node->str);
-    env_block_len += env_node->len + 1;
+    env_node->len = wcslen(env_node->str) + 1;
+    env_block_len += env_node->len;
     QUEUE_INSERT_TAIL(&env_q, &env_node->node);
   }
 
@@ -505,14 +505,17 @@ static int build_env_block(dict_T *denv, wchar_t **env_block)
   env_block_len++;
 
   *env_block = xmalloc(sizeof(**env_block) * env_block_len);
+  wchar_t *pos = *env_block;
 
   QUEUE_FOREACH(q, &env_q) {
     EnvNode *env_node = QUEUE_DATA(q, EnvNode, node);
-    memcpy(env_block, env_node->str, env_node->len);
-    env_block += env_node->len;
+    memcpy(pos, env_node->str, env_node->len * sizeof(*pos));
+    pos += env_node->len;
+    *pos = L'\0';
+    pos++;
   }
 
-  *env_block = '\0';
+  *pos = L'\0';
 
 cleanup:
   q = QUEUE_HEAD(&env_q);
