@@ -9,6 +9,7 @@ local uname = helpers.uname
 local thelpers = require('test.functional.terminal.helpers')
 local Screen = require('test.functional.ui.screen')
 local eq = helpers.eq
+local neq = helpers.neq
 local feed_command = helpers.feed_command
 local feed_data = thelpers.feed_data
 local clear = helpers.clear
@@ -912,6 +913,16 @@ describe('TUI', function()
       <C-h>                                             |
       {3:-- TERMINAL --}                                    |
     ]])
+  end)
+
+  it('does not crash when resize #13900', function()
+    local screen = thelpers.screen_setup(0, '["'..nvim_prog
+       ..[[", '-u', 'NORC', '-i', 'NONE', '-c']]
+       ..[[, ':let g:wh=getwininfo(win_getid(winnr()))[0]["height"] | for n in range(1,g:wh-1) | call setline(n,"") | endfor | call setline(g:wh,"aa")']]..']')
+
+    command([[call chansend(b:terminal_job_id, "\<C-w>v\<C-w>l\<C-w>|")]])
+    command("vsplit")
+    neq(0, eval('jobpid(b:terminal_job_id)'))
   end)
 end)
 
