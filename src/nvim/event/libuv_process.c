@@ -46,6 +46,9 @@ int libuv_process_spawn(LibuvProcess *uvproc)
   uvproc->uvstdio[0].flags = UV_IGNORE;
   uvproc->uvstdio[1].flags = UV_IGNORE;
   uvproc->uvstdio[2].flags = UV_IGNORE;
+  uvproc->uvstdio[0].data.fd = -1;
+  uvproc->uvstdio[1].data.fd = -1;
+  uvproc->uvstdio[2].data.fd = -1;
   uvproc->uv.data = proc;
 
   if (proc->env) {
@@ -54,30 +57,69 @@ int libuv_process_spawn(LibuvProcess *uvproc)
     uvproc->uvopts.env = NULL;
   }
 
+  int fds[2];
+  int server_flags, client_flags;
+
   if (!proc->in.closed) {
-    uvproc->uvstdio[0].flags = UV_CREATE_PIPE | UV_READABLE_PIPE;
 #ifdef WIN32
-    uvproc->uvstdio[0].flags |= proc->overlapped ? UV_OVERLAPPED_PIPE : 0;
+    server_flags = 0;
+    client_flags = 0;
+    server_flags |= UV_WRITABLE_PIPE | UV_NONBLOCK_PIPE;
+    client_flags |= UV_READABLE_PIPE
+      | proc->overlapped ? UV_OVERLAPPED_PIPE : 0;
+#else
+    server_flags = UV_NONBLOCK_PIPE;
+    client_flags = UV_NONBLOCK_PIPE;
 #endif
-    uvproc->uvstdio[0].data.stream = STRUCT_CAST(uv_stream_t,
-                                                 &proc->in.uv.pipe);
+    uvproc->uvstdio[0].flags = UV_INHERIT_FD | UV_READABLE_PIPE;
+    int err;
+    if ((err = uv_pipe(fds, client_flags, server_flags)) != 0) {
+      ELOG("uv_pipe failed: %s", uv_strerror(err));
+      return err;
+    }
+    uv_pipe_open(&proc->in.uv.pipe, fds[1]);
+    uvproc->uvstdio[0].data.fd = fds[0];
   }
 
   if (!proc->out.closed) {
-    uvproc->uvstdio[1].flags = UV_CREATE_PIPE | UV_WRITABLE_PIPE;
 #ifdef WIN32
+    server_flags = 0;
+    client_flags = 0;
+    server_flags |= UV_READABLE_PIPE | UV_WRITABLE_PIPE | UV_NONBLOCK_PIPE;
+    client_flags |= UV_READABLE_PIPE;
     // pipe must be readable for IOCP to work on Windows.
-    uvproc->uvstdio[1].flags |= proc->overlapped ?
-      (UV_READABLE_PIPE | UV_OVERLAPPED_PIPE) : 0;
+    client_flags |=
+      proc->overlapped ? (UV_OVERLAPPED_PIPE | UV_WRITABLE_PIPE) : 0;
+#else
+    server_flags = UV_NONBLOCK_PIPE;
+    client_flags = UV_NONBLOCK_PIPE;
 #endif
-    uvproc->uvstdio[1].data.stream = STRUCT_CAST(uv_stream_t,
-                                                 &proc->out.uv.pipe);
+    uvproc->uvstdio[1].flags = UV_INHERIT_FD | UV_WRITABLE_PIPE;
+    int err;
+    if ((err = uv_pipe(fds, server_flags, client_flags)) != 0) {
+      ELOG("uv_pipe failed: %s", uv_strerror(err));
+      return err;
+    }
+    uv_pipe_open(&proc->out.uv.pipe, fds[0]);
+    uvproc->uvstdio[1].data.fd = fds[1];
   }
 
   if (!proc->err.closed) {
-    uvproc->uvstdio[2].flags = UV_CREATE_PIPE | UV_WRITABLE_PIPE;
-    uvproc->uvstdio[2].data.stream = STRUCT_CAST(uv_stream_t,
-                                                 &proc->err.uv.pipe);
+#ifdef WIN32
+    server_flags = 0;
+    client_flags = 0;
+#else
+    server_flags = UV_NONBLOCK_PIPE;
+    client_flags = UV_NONBLOCK_PIPE;
+#endif
+    uvproc->uvstdio[2].flags = UV_INHERIT_FD | UV_WRITABLE_PIPE;
+    int err;
+    if ((err = uv_pipe(fds, server_flags, client_flags)) != 0) {
+      ELOG("uv_pipe failed: %s", uv_strerror(err));
+      return err;
+    }
+    uv_pipe_open(&proc->err.uv.pipe, fds[0]);
+    uvproc->uvstdio[2].data.fd = fds[1];
   }
 
   int status;
