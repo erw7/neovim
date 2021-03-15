@@ -2358,7 +2358,8 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow,
   if (lnum == wp->w_cursor.lnum) {
     // Do not show the cursor line when Visual mode is active, because it's
     // not clear what is selected then.
-    if (wp->w_p_cul && !(wp == curwin && VIsual_active)) {
+    if (wp->w_p_cul && !(wp == curwin && VIsual_active)
+        && *wp->w_p_culopt != 'n') {
       int cul_attr = win_hl_attr(wp, HLF_CUL);
       HlAttrs ae = syn_attr2entry(cul_attr);
 
@@ -2782,6 +2783,7 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow,
               // :sign defined with "numhl" highlight.
               char_attr = num_sattr->sat_numhl;
             } else if ((wp->w_p_cul || wp->w_p_rnu)
+                       && *wp->w_p_culopt != 'l'
                        && lnum == wp->w_cursor.lnum
                        && filler_todo == 0) {
               // When 'cursorline' is set highlight the line number of
@@ -2817,7 +2819,8 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow,
 
           if (diff_hlf != (hlf_T)0) {
             char_attr = win_hl_attr(wp, diff_hlf);
-            if (wp->w_p_cul && lnum == wp->w_cursor.lnum) {
+            if (wp->w_p_cul && lnum == wp->w_cursor.lnum
+                && *wp->w_p_culopt != 'n') {
               char_attr = hl_combine_attr(char_attr, win_hl_attr(wp, HLF_CUL));
             }
           }
@@ -2877,7 +2880,8 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow,
           if (tocol == vcol)
             tocol += n_extra;
           // Combine 'showbreak' with 'cursorline', prioritizing 'showbreak'.
-          if (wp->w_p_cul && lnum == wp->w_cursor.lnum) {
+          if (wp->w_p_cul && lnum == wp->w_cursor.lnum
+              && *wp->w_p_culopt != 'n') {
             char_attr = hl_combine_attr(win_hl_attr(wp, HLF_CUL), char_attr);
           }
         }
@@ -3112,7 +3116,8 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow,
         }
         line_attr = win_hl_attr(wp, diff_hlf);
         // Overlay CursorLine onto diff-mode highlight.
-        if (wp->w_p_cul && lnum == wp->w_cursor.lnum) {
+        if (wp->w_p_cul && lnum == wp->w_cursor.lnum
+            && *wp->w_p_culopt != 'n') {
           line_attr = 0 != line_attr_lowprio  // Low-priority CursorLine
             ? hl_combine_attr(hl_combine_attr(win_hl_attr(wp, HLF_CUL),
                                               line_attr),
@@ -3920,7 +3925,8 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow,
         }
 
         int eol_attr = char_attr;
-        if (wp->w_p_cul && lnum == wp->w_cursor.lnum) {
+        if (wp->w_p_cul && lnum == wp->w_cursor.lnum
+            && *wp->w_p_culopt != 'n') {
           eol_attr = hl_combine_attr(win_hl_attr(wp, HLF_CUL), eol_attr);
         }
         linebuf_attr[off] = eol_attr;
