@@ -626,6 +626,15 @@ return {
       defaults={if_true={vi=false}}
     },
     {
+      full_name='cursorlineopt', abbreviation='culopt',
+      short_desc=N_("settings for cursorline"),
+      type='string', list='onecomma', scope={'window'},
+      deny_duplicates=true,
+      vi_def=true,
+      redraw={'current_window'},
+      defaults={if_true={vi="both"}}
+    },
+    {
       full_name='debug',
       short_desc=N_("to \"msg\" to see all error messages"),
       type='string', scope={'global'},
