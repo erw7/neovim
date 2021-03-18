@@ -10893,6 +10893,25 @@ static void f_termopen(typval_T *argvars, typval_T *rettv, FunPtr fptr)
   dict_set_var(curbuf->b_vars, cstr_as_string("terminal_job_pid"),
                INTEGER_OBJ(pid), false, false, &err);
   api_clear_error(&err);
+#ifdef WIN32
+  PtyProcess *proc = (PtyProcess *)&chan->stream.proc;
+  if (proc->type == kConpty) {
+    if (proc->object.conpty->type == kKernel) {
+      dict_set_var(curbuf->b_vars, cstr_as_string("terminal_type"),
+                   STRING_OBJ(STATIC_CSTR_AS_STRING("conpty kernel")), false,
+                   false, &err);
+    } else {
+      dict_set_var(curbuf->b_vars, cstr_as_string("terminal_type"),
+                   STRING_OBJ(STATIC_CSTR_AS_STRING("conpty dll")), false,
+                   false, &err);
+    }
+  } else {
+      dict_set_var(curbuf->b_vars, cstr_as_string("terminal_type"),
+                   STRING_OBJ(STATIC_CSTR_AS_STRING("winpty")), false,
+                   false, &err);
+  }
+  api_clear_error(&err);
+#endif
 
   channel_terminal_open(curbuf, chan);
   channel_create_event(chan, NULL);
