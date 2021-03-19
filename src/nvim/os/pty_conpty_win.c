@@ -17,27 +17,28 @@
 # define PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE 0x00020016
 #endif
 
-HRESULT (WINAPI *pCreatePseudoConsole)(COORD, HANDLE, HANDLE, DWORD, HPCON *);
-HRESULT (WINAPI *pResizePseudoConsole)(HPCON, COORD);
-void (WINAPI *pClosePseudoConsole)(HPCON);
+HRESULT (WINAPI *pCreatePseudoConsole[2])  // NOLINT(whitespace/parens)
+  (COORD, HANDLE, HANDLE, DWORD, HPCON *);
+HRESULT (WINAPI *pResizePseudoConsole[2])(HPCON, COORD);
+void (WINAPI *pClosePseudoConsole[2])(HPCON);
 
-bool os_has_conpty_working(void)
+QuadState os_has_conpty_working(void)
 {
-  static TriState has_conpty = kNone;
-  if (has_conpty == kNone) {
+  static QuadState has_conpty = kQNone;
+  if (has_conpty == kQNone) {
     has_conpty = os_dyn_conpty_init();
   }
 
-  return has_conpty == kTrue;
+  return has_conpty;
 }
 
-TriState os_dyn_conpty_init(void)
+QuadState os_dyn_conpty_init(void)
 {
 #define OPENCONSOLE "OpenConsole.exe"
   wchar_t *utf16_dll_path = NULL;
   char *utf8_dll_path = NULL;
   char *exe_path = NULL;
-  TriState result = kFalse;
+  QuadState result = kQFalse;
   uv_lib_t lib_kernel32;
   uv_lib_t *need_close = &lib_kernel32;
   if (uv_dlopen("kernel32.dll", &lib_kernel32)) {
@@ -48,9 +49,9 @@ TriState os_dyn_conpty_init(void)
     FARPROC *ptr;
     FARPROC proc;
   } conpty_entry[] = {
-    { "CreatePseudoConsole", (FARPROC *)&pCreatePseudoConsole, NULL },
-    { "ResizePseudoConsole", (FARPROC *)&pResizePseudoConsole, NULL },
-    { "ClosePseudoConsole", (FARPROC *)&pClosePseudoConsole, NULL }
+    { "CreatePseudoConsole", (FARPROC *)pCreatePseudoConsole, NULL },
+    { "ResizePseudoConsole", (FARPROC *)pResizePseudoConsole, NULL },
+    { "ClosePseudoConsole", (FARPROC *)pClosePseudoConsole, NULL }
   };
   for (int i = 0; i < (int)ARRAY_SIZE(conpty_entry); i++) {
     if (uv_dlsym(&lib_kernel32, conpty_entry[i].name,
@@ -59,7 +60,7 @@ TriState os_dyn_conpty_init(void)
     }
     *conpty_entry[i].ptr = conpty_entry[i].proc;
   }
-  result = kTrue;
+  result = kLevel1;
   uv_lib_t lib_conpty;
   need_close = &lib_conpty;
   if (uv_dlopen("conpty.dll", &lib_conpty)) {
@@ -97,14 +98,17 @@ TriState os_dyn_conpty_init(void)
     if (!os_can_exe(exe_path, NULL, false)) {
       goto end;
     }
-    need_close = &lib_kernel32;
+    need_close = NULL;
     for (int i = 0; i < (int)ARRAY_SIZE(conpty_entry); i++) {
-      *conpty_entry[i].ptr = conpty_entry[i].proc;
+      *(conpty_entry[i].ptr + 1) = conpty_entry[i].proc;
     }
+    result = kLevel2;
   }
 
 end:
-  uv_dlclose(need_close);
+  if (need_close != NULL) {
+    uv_dlclose(need_close);
+  }
   xfree(utf16_dll_path);
   xfree(utf8_dll_path);
   xfree(exe_path);
@@ -160,7 +164,11 @@ conpty_t *os_conpty_init(char **in_name, char **out_name,
   assert(height <=  SHRT_MAX);
   COORD size = { (int16_t)width, (int16_t)height };
   HRESULT hr;
-  hr = pCreatePseudoConsole(size, in_read, out_write, 0, &conpty_object->pty);
+  conpty_object->type =
+    (os_has_conpty_working() == kLevel2
+     && (p_tmt[0] == 'd' || p_tmt[0] == '\0')) ? kDll : kKernel;
+  hr = pCreatePseudoConsole[conpty_object->type == kDll ? 1 : 0]
+    (size, in_read, out_write, 0, &conpty_object->pty);
   if (FAILED(hr)) {
     emsg = "create pseudo console failed";
     goto failed;
@@ -236,7 +244,8 @@ void os_conpty_set_size(conpty_t *conpty_object,
     assert(width <= SHRT_MAX);
     assert(height <= SHRT_MAX);
     COORD size = { (int16_t)width, (int16_t)height };
-    if (pResizePseudoConsole(conpty_object->pty, size) != S_OK) {
+    if (pResizePseudoConsole[conpty_object->type == kDll ? 1 : 0]
+        (conpty_object->pty, size) != S_OK) {
       ELOG("ResizePseudoConsoel failed: error code: %d",
            os_translate_sys_error((int)GetLastError()));
     }
@@ -250,7 +259,8 @@ void os_conpty_free(conpty_t *conpty_object)
       xfree(conpty_object->si_ex.lpAttributeList);
     }
     if (conpty_object->pty != NULL) {
-      pClosePseudoConsole(conpty_object->pty);
+      pClosePseudoConsole[conpty_object->type == kDll ? 1 : 0]
+        (conpty_object->pty);
     }
   }
   xfree(conpty_object);

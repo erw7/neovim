@@ -29,4 +29,11 @@ typedef enum {
   kTrue  = 1,
 } TriState;
 
+typedef enum {
+  kQNone  = -1,
+  kQFalse = 0,
+  kLevel1 = 1,
+  kLevel2 = 2,
+} QuadState;
+
 #endif  // NVIM_TYPES_H

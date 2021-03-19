@@ -5,14 +5,20 @@
 # define HPCON VOID *
 #endif
 
-extern HRESULT (WINAPI *pCreatePseudoConsole)  // NOLINT(whitespace/parens)
-  (COORD, HANDLE, HANDLE, DWORD, HPCON *);
-extern HRESULT (WINAPI *pResizePseudoConsole)(HPCON, COORD);
-extern void (WINAPI *pClosePseudoConsole)(HPCON);
+extern HRESULT (WINAPI *pCreatePseudoConsole[])  // NOLINT(whitespace/parens)
+  (COORD size, HANDLE hInput, HANDLE hOutput, DWORD dwFlags, HPCON *phPC);
+extern HRESULT (WINAPI *pResizePseudoConsole[])(HPCON phPC, COORD size);
+extern void (WINAPI *pClosePseudoConsole[])(HPCON phPC);
+
+typedef enum {
+  kKernel = 1,
+  kDll    = 2,
+} ConPtyType;
 
 typedef struct conpty {
   HPCON pty;
   STARTUPINFOEXW si_ex;
+  ConPtyType type;
 } conpty_t;
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
