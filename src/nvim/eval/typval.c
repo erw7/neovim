@@ -1314,7 +1314,7 @@ void tv_dict_watcher_notify(dict_T *const dict, const char *const key,
   bool any_needs_free = false;
   dict->dv_refcount++;
   QUEUE *w;
-  QUEUE_FOREACH(w, &dict->watchers, {
+  for(w = (&dict->watchers)->next; w != &dict->watchers; w = w->next) {
     DictWatcher *watcher = tv_dict_watcher_node_data(w);
     if (!watcher->busy && tv_dict_watcher_matches(watcher, key)) {
       rettv = TV_INITIAL_VALUE;
@@ -1326,7 +1326,7 @@ void tv_dict_watcher_notify(dict_T *const dict, const char *const key,
         any_needs_free = true;
       }
     }
-  })
+  }
   if (any_needs_free) {
     QUEUE_FOREACH(w, &dict->watchers, {
       DictWatcher *watcher = tv_dict_watcher_node_data(w);
