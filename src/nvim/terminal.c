@@ -295,6 +295,9 @@ void terminal_close(Terminal *term, char *msg)
   }
 
   if (buf) {
+    if (curbuf != buf) {
+      set_curbuf(buf, DOBUF_GOTO);
+    }
     apply_autocmds(EVENT_TERMCLOSE, NULL, NULL, false, buf);
   }
 }
