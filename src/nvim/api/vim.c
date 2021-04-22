@@ -1304,7 +1304,7 @@ Integer nvim_open_term(Buffer buffer, Dictionary opts, Error *err)
   return (Integer)chan->id;
 }
 
-static void term_write(char *buf, size_t size, void *data)
+static void term_write(const char *buf, size_t size, void *data)
 {
   // TODO(bfredl): lua callback
 }
