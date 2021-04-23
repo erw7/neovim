@@ -588,35 +588,49 @@ void terminal_paste(long count, char_u **y_array, size_t y_size)
     return;
   }
   vterm_keyboard_start_paste(curbuf->terminal->vt);
-  size_t buff_len = STRLEN(y_array[0]);
-  char_u *buff = xmalloc(buff_len);
+  size_t textbuf_len = sizeof(curbuf->terminal->textbuf);
+  size_t remain = textbuf_len;
+  char *dst = curbuf->terminal->textbuf;
   for (int i = 0; i < count; i++) {  // -V756
     // feed the lines to the terminal
     for (size_t j = 0; j < y_size; j++) {
       if (j) {
+        if (!remain) {
+          terminal_send(curbuf->terminal, curbuf->terminal->textbuf,
+                        textbuf_len);
+          remain = textbuf_len;
+          dst = curbuf->terminal->textbuf;
+        }
         // terminate the previous line
-        terminal_send(curbuf->terminal, "\n", 1);
+        *dst++ = '\n';
+        remain--;
       }
-      size_t len = STRLEN(y_array[j]);
-      if (len > buff_len) {
-        buff = xrealloc(buff, len);
-        buff_len = len;
-      }
-      char_u *dst = buff;
       char_u *src = y_array[j];
       while (*src != '\0') {
-        len = (size_t)utf_ptr2len(src);
+        size_t len = (size_t)utf_ptr2len(src);
         int c = utf_ptr2char(src);
         if (!is_filter_char(c)) {
+          if (remain < len) {
+            if (remain) {
+              memcpy(dst, src, remain);
+              src += remain;
+              len -= remain;
+            }
+            terminal_send(curbuf->terminal, curbuf->terminal->textbuf,
+                          textbuf_len);
+            remain = textbuf_len;
+            dst = curbuf->terminal->textbuf;
+          }
           memcpy(dst, src, len);
           dst += len;
+          remain -= len;
         }
         src += len;
       }
-      terminal_send(curbuf->terminal, (char *)buff, (size_t)(dst - buff));
     }
+    terminal_send(curbuf->terminal, curbuf->terminal->textbuf,
+                  textbuf_len - remain);
   }
-  xfree(buff);
   vterm_keyboard_end_paste(curbuf->terminal->vt);
 }
 
