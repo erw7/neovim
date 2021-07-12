@@ -277,6 +277,9 @@ while init ~= nil do
       if declaration:sub(1, 6) == 'static' then
         static = static .. declaration
       else
+        if package.config:sub(1, 1) == '\\' then
+          declaration = '__declspec(dllexport) ' .. declaration
+        end
         non_static = non_static .. declaration
       end
       declendpos = e

@@ -32,7 +32,8 @@ local c_type = (C(c_void) * (ws ^ 1)) + c_param_type
 local c_param = Ct(c_param_type * C(c_id))
 local c_param_list = c_param * (fill * (P(',') * fill * c_param) ^ 0)
 local c_params = Ct(c_void + c_param_list)
-local c_proto = Ct(
+local dllspec = P('__declspec(dllexport) ') ^ 0
+local c_proto = dllspec * Ct(
   Cg(c_type, 'return_type') * Cg(c_id, 'name') *
   fill * P('(') * fill * Cg(c_params, 'parameters') * fill * P(')') *
   Cg(Cc(false), 'fast') *
